@@ -879,3 +879,13 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+# rsconnect::deployApp(                                                                                                                                                                                     
+#   appDir         = ".",                                                              
+#   appFiles       = c("app.R", "cargas7.R", "data/Sessions_micro01.xlsx"),                                                                                                                                 
+#   appName        = "cargas_fisicas_7",                                                                                                                                                                  
+#   account        = "mateo-rodriguez-23",                                                                                                                                                                  
+#   server         = "shinyapps.io",
+#   forceUpdate    = TRUE,                                                                                                                                                                                  
+#   launch.browser = FALSE                                                                                                                                                                                  
+# ) 
