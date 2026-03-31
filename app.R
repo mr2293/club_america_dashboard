@@ -404,7 +404,7 @@ plot_pct_hist_speed <- function(datos) {
 }
 
 # ----------------------------
-# NEW: Sprints Absolutos (>95%)
+# NEW: Sprints Absolutos (>24 km/h)
 # ----------------------------
 plot_sprints_abs_count <- function(datos) {
   
@@ -462,7 +462,7 @@ plot_sprints_abs_count <- function(datos) {
     ggplot2::coord_flip() +
     ggplot2::scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
     ggplot2::labs(
-      title = "Número de Sprints Absolutos >95% (Últimos 7 Días)",
+      title = "Número de Sprints Absolutos >24 km/h (Últimos 7 Días)",
       subtitle = "Punto amarillo: Promedio semanal (promedio de 4 semanas, últimos 28 días)",
       x = NULL,
       y = "Número de Sprints"
@@ -818,7 +818,7 @@ ui <- fluidPage(
     tabPanel("ACC + DECC",        plotOutput("plot_acc",           height = "700px")),
     tabPanel("Player Load",       plotOutput("plot_pl",            height = "700px")),
     tabPanel("% Vel. Máx. Hist",  plotOutput("plot_pct_speed",     height = "700px")),
-    tabPanel("Sprints Abs. >95%", plotOutput("plot_sprints_abs",   height = "700px")),
+    tabPanel("Sprints Abs. >24 km/h", plotOutput("plot_sprints_abs",   height = "700px")),
     tabPanel("Sprints Rel. >85%", plotOutput("plot_sprints_rel",   height = "700px"))
   )
 )
@@ -880,12 +880,12 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-# rsconnect::deployApp(                                                                                                                                                                                     
-#   appDir         = ".",                                                              
-#   appFiles       = c("app.R", "cargas7.R", "data/Sessions_micro01.xlsx"),                                                                                                                                 
-#   appName        = "cargas_fisicas_7",                                                                                                                                                                  
-#   account        = "mateo-rodriguez-23",                                                                                                                                                                  
+# rsconnect::deployApp(
+#   appDir         = ".",
+#   appFiles       = c("app.R", "cargas7.R", "data/Sessions_micro01.xlsx"),
+#   appName        = "cargas_fisicas_7",
+#   account        = "mateo-rodriguez-23",
 #   server         = "shinyapps.io",
-#   forceUpdate    = TRUE,                                                                                                                                                                                  
-#   launch.browser = FALSE                                                                                                                                                                                  
-# ) 
+#   forceUpdate    = TRUE,
+#   launch.browser = FALSE
+# )
