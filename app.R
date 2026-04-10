@@ -706,7 +706,7 @@ ui <- fluidPage(
     column(4,
       dateRangeInput(
         inputId  = "date_range",
-        label    = "Per\u00edodo:",
+        label    = "Periodo:",
         start    = max(datos$date, na.rm = TRUE) - days(6),
         end      = max(datos$date, na.rm = TRUE),
         min      = min(datos$date, na.rm = TRUE),
