@@ -162,8 +162,7 @@ plot_distance_total <- function(datos_win) {
     arrange(desc(distance_m_7d)) |>
     mutate(player = factor(player, levels = rev(player)))
 
-  team_avg  <- mean(df_dist7$distance_m_7d, na.rm = TRUE)
-  n_players <- nrow(df_dist7)
+  team_avg <- mean(df_dist7$distance_m_7d, na.rm = TRUE)
 
   ggplot(df_dist7, aes(x = player, y = distance_m_7d)) +
     geom_col(fill = "#0B1B4A", color = "white", linewidth = 0.2) +
@@ -173,9 +172,9 @@ plot_distance_total <- function(datos_win) {
       color = "white", size = 4, fontface = "bold", hjust = 1.05
     ) +
     annotate(
-      "text", y = team_avg, x = n_players,
+      "text", y = team_avg, x = 1,
       label     = paste0("Promedio equipo: ", round(team_avg / 1000, 1), "k"),
-      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = -0.5
+      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
     ) +
     coord_flip(clip = "off") +
     scale_y_continuous(labels = scales::comma) +
@@ -193,8 +192,7 @@ plot_acc_decc <- function(datos_win) {
     arrange(desc(acc_plus_decc_7d)) |>
     mutate(player = factor(player, levels = rev(player)))
 
-  team_avg  <- mean(df_acc7$acc_plus_decc_7d, na.rm = TRUE)
-  n_players <- nrow(df_acc7)
+  team_avg <- mean(df_acc7$acc_plus_decc_7d, na.rm = TRUE)
 
   ggplot(df_acc7, aes(x = player, y = acc_plus_decc_7d)) +
     geom_col(fill = "#0B1B4A", color = "white", linewidth = 0.2) +
@@ -204,9 +202,9 @@ plot_acc_decc <- function(datos_win) {
       color = "white", size = 4, fontface = "bold", hjust = 1.05
     ) +
     annotate(
-      "text", y = team_avg, x = n_players,
+      "text", y = team_avg, x = 1,
       label     = paste0("Promedio equipo: ", scales::comma(round(team_avg, 0))),
-      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = -0.5
+      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
     ) +
     coord_flip(clip = "off") +
     scale_y_continuous(labels = scales::comma) +
@@ -224,8 +222,7 @@ plot_player_load <- function(datos_win) {
     arrange(desc(player_load_7d)) |>
     mutate(player = factor(player, levels = rev(player)))
 
-  team_avg  <- mean(df_pl7$player_load_7d, na.rm = TRUE)
-  n_players <- nrow(df_pl7)
+  team_avg <- mean(df_pl7$player_load_7d, na.rm = TRUE)
 
   ggplot(df_pl7, aes(x = player, y = player_load_7d)) +
     geom_col(fill = "#0B1B4A", color = "white", linewidth = 0.2) +
@@ -235,9 +232,9 @@ plot_player_load <- function(datos_win) {
       color = "white", size = 4, fontface = "bold", hjust = 1.05
     ) +
     annotate(
-      "text", y = team_avg, x = n_players,
+      "text", y = team_avg, x = 1,
       label     = paste0("Promedio equipo: ", scales::comma(round(team_avg, 0))),
-      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = -0.5
+      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
     ) +
     coord_flip(clip = "off") +
     scale_y_continuous(labels = scales::comma) +
@@ -271,7 +268,6 @@ plot_pct_hist_speed <- function(datos_win) {
     mutate(player = factor(player, levels = rev(player)))
 
   team_avg_pct <- mean(df_speed7$pct_hist_7d, na.rm = TRUE)
-  n_players    <- nrow(df_speed7)
 
   ggplot(df_speed7, aes(x = player, y = pct_hist_7d)) +
     geom_col(fill = "#0B1B4A", color = "white", linewidth = 0.2) +
@@ -286,9 +282,9 @@ plot_pct_hist_speed <- function(datos_win) {
       color = "white", size = 4, fontface = "bold", hjust = 0
     ) +
     annotate(
-      "text", y = team_avg_pct, x = n_players,
+      "text", y = team_avg_pct, x = 1,
       label     = paste0("Promedio equipo: ", round(team_avg_pct, 1), "%"),
-      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = -0.5
+      color     = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
     ) +
     coord_flip(clip = "off") +
     scale_y_continuous(labels = ~ paste0(scales::comma(.x), "%"), limits = c(0, NA)) +
@@ -724,11 +720,11 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
     ) |>
     # Spanner grouping the two reference columns
     gt::tab_spanner(
-      label   = "vs Promedio Equipo (per\u00edodo)",
+      label   = "vs Promedio Equipo (periodo)",
       columns = c(Prom_Equipo, vs_eq_label)
     ) |>
     gt::tab_spanner(
-      label   = "vs Promedio Personal (\u00fclt. 28 d\u00edas)",
+      label   = "vs Promedio Personal (últ. 28 días)",
       columns = c(Prom_Mes, vs_mes_label)
     ) |>
     gt::tab_options(
