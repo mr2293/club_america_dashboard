@@ -583,10 +583,11 @@ build_resumen_table <- function(datos_win) {
 # ----------------------------
 # Player profile table
 # ----------------------------
-build_player_profile <- function(datos_win, player_name) {
+build_player_profile <- function(datos_win, player_name, datos_full = datos) {
 
   cols <- c("hsr", "sprint", "dist", "acc_decc", "pl", "sp_abs", "sp_rel", "vel_max", "pct_vel")
 
+  # --- Selected-window aggregates (all players, for team average) ---
   team_sums <- datos_win |>
     dplyr::group_by(player) |>
     dplyr::summarise(
@@ -621,6 +622,50 @@ build_player_profile <- function(datos_win, player_name) {
   player_vals <- as.numeric(player_row[1, cols])
   avg_vals    <- as.numeric(team_avg[1, cols])
 
+  # --- 28-day personal average (anchored to selected end date) ---
+  ref_date  <- max(datos_win$date, na.rm = TRUE)
+  start_28d <- ref_date - lubridate::days(27)
+
+  # Cumulative metrics: reuse get_4w_weekly_avg (weekly avg over 4 rolling weeks)
+  col_map <- c(
+    hsr = "HSR_abs_dist", sprint = "distance_abs", dist = "distance_m",
+    acc_decc = "acc_plus_decc", pl = "player_load",
+    sp_abs = "sprints_abs_count", sp_rel = "sprints_rel_count"
+  )
+  mes_cum <- sapply(names(col_map), function(k) {
+    df  <- get_4w_weekly_avg(datos_full, col_map[[k]], ref_date = ref_date)
+    val <- df$avg_4w[df$player == player_name]
+    if (length(val) == 0 || is.na(val)) NA_real_ else val
+  })
+
+  # Speed metrics: mean of daily values over the 28-day window
+  speed_28d <- datos_full |>
+    dplyr::filter(player == player_name, date >= start_28d, date <= ref_date) |>
+    dplyr::summarise(
+      vel_max  = mean(max_speed,   na.rm = TRUE),
+      vel_hist = max(vel_max_hist, na.rm = TRUE)
+    ) |>
+    dplyr::mutate(
+      pct_vel = dplyr::if_else(
+        is.finite(vel_hist) & vel_hist > 0, 100 * vel_max / vel_hist, NA_real_
+      )
+    )
+
+  mes_vals <- c(
+    mes_cum,
+    vel_max = as.numeric(speed_28d$vel_max),
+    pct_vel = as.numeric(speed_28d$pct_vel)
+  )[cols]  # reorder to match cols vector
+
+  # --- Helper: pre-format a % deviation as "+X.X%" / "-X.X%" ---
+  fmt_pct <- function(pct) {
+    dplyr::case_when(
+      pct > 0  ~ paste0("+", formatC(pct, digits = 1, format = "f"), "%"),
+      pct < 0  ~ paste0(formatC(pct, digits = 1, format = "f"), "%"),
+      TRUE     ~ "0.0%"
+    )
+  }
+
   profile <- tibble::tibble(
     metrica     = c(
       "HSR (m)", "Sprint (m)", "Distancia Total (m)",
@@ -629,16 +674,14 @@ build_player_profile <- function(datos_win, player_name) {
       "Vel. M\u00e1xima (km/h)", "% Vel. Hist\u00f3rica"
     ),
     Jugador     = player_vals,
-    Prom_Equipo = avg_vals
+    Prom_Equipo = avg_vals,
+    Prom_Mes    = mes_vals
   ) |>
     dplyr::mutate(
       vs_Equipo = 100 * Jugador / Prom_Equipo - 100,
-      # Pre-format label in R to avoid gt's Unicode minus breaking as.numeric()
-      vs_label  = dplyr::case_when(
-        vs_Equipo > 0  ~ paste0("+", formatC(vs_Equipo, digits = 1, format = "f"), "%"),
-        vs_Equipo < 0  ~ paste0(formatC(vs_Equipo, digits = 1, format = "f"), "%"),
-        TRUE           ~ "0.0%"
-      )
+      vs_Mes    = 100 * Jugador / Prom_Mes    - 100,
+      vs_eq_label  = fmt_pct(vs_Equipo),
+      vs_mes_label = fmt_pct(vs_Mes)
     )
 
   profile |>
@@ -648,27 +691,48 @@ build_player_profile <- function(datos_win, player_name) {
       subtitle = gt::md(paste0("Per\u00edodo: **", period_label(datos_win), "**"))
     ) |>
     gt::cols_label(
-      metrica     = "M\u00e9trica",
-      Jugador     = "Jugador",
-      Prom_Equipo = "Prom. Equipo",
-      vs_label    = "% vs Equipo"
+      metrica      = "M\u00e9trica",
+      Jugador      = "Jugador",
+      Prom_Equipo  = "Prom. Equipo",
+      vs_eq_label  = "% vs Equipo",
+      Prom_Mes     = "Prom. Sem. (28d)",
+      vs_mes_label = "% vs \u00dclt. Mes"
     ) |>
-    gt::cols_hide(vs_Equipo) |>
-    gt::fmt_number(columns = c(Jugador, Prom_Equipo), decimals = 1, use_seps = TRUE) |>
+    gt::cols_hide(c(vs_Equipo, vs_Mes)) |>
+    gt::fmt_number(columns = c(Jugador, Prom_Equipo, Prom_Mes), decimals = 1, use_seps = TRUE) |>
+    # vs Equipo highlighting
     gt::tab_style(
       style     = gt::cell_fill(color = "#d4edda"),
-      locations = gt::cells_body(columns = vs_label, rows = vs_Equipo > 0)
+      locations = gt::cells_body(columns = vs_eq_label, rows = vs_Equipo > 0)
     ) |>
     gt::tab_style(
       style     = gt::cell_fill(color = "#f8d7da"),
-      locations = gt::cells_body(columns = vs_label, rows = vs_Equipo < 0)
+      locations = gt::cells_body(columns = vs_eq_label, rows = vs_Equipo < 0)
+    ) |>
+    # vs Último Mes highlighting
+    gt::tab_style(
+      style     = gt::cell_fill(color = "#d4edda"),
+      locations = gt::cells_body(columns = vs_mes_label, rows = vs_Mes > 0)
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_fill(color = "#f8d7da"),
+      locations = gt::cells_body(columns = vs_mes_label, rows = vs_Mes < 0)
     ) |>
     gt::tab_style(
       style     = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(columns = metrica)
     ) |>
+    # Spanner grouping the two reference columns
+    gt::tab_spanner(
+      label   = "vs Promedio Equipo (per\u00edodo)",
+      columns = c(Prom_Equipo, vs_eq_label)
+    ) |>
+    gt::tab_spanner(
+      label   = "vs Promedio Personal (\u00fclt. 28 d\u00edas)",
+      columns = c(Prom_Mes, vs_mes_label)
+    ) |>
     gt::tab_options(
-      table.font.size                 = gt::px(14),
+      table.font.size                 = gt::px(13),
       heading.title.font.size         = gt::px(18),
       heading.subtitle.font.size      = gt::px(13),
       column_labels.font.weight       = "bold",
@@ -677,12 +741,16 @@ build_player_profile <- function(datos_win, player_name) {
       row.striping.background_color   = "#f8f9fa",
       table.border.top.color          = "#0B1B4A",
       table.border.top.width          = gt::px(3),
-      table.width                     = pct(60),
+      table.width                     = pct(85),
       data_row.padding                = gt::px(6)
     ) |>
     gt::tab_style(
       style     = gt::cell_text(color = "white", weight = "bold"),
       locations = gt::cells_column_labels(columns = tidyselect::everything())
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(color = "white", weight = "bold"),
+      locations = gt::cells_column_spanners(spanners = tidyselect::everything())
     )
 }
 
@@ -744,8 +812,8 @@ ui <- fluidPage(
         )
       ),
       fluidRow(
-        column(8,
-          div(style = "padding: 10px 20px 20px 20px;",
+        column(12,
+          div(style = "padding: 10px 20px 20px 20px; overflow-x: auto;",
               gt::gt_output("tabla_perfil"))
         )
       )
