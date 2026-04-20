@@ -753,7 +753,7 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
 # ----------------------------
 # Match Day (MD) table
 # ----------------------------
-build_md_table <- function(datos) {
+build_md_table <- function(datos, selected_date = NULL) {
   col_above <- "#D5F5E3"
   col_below <- "#FADBD8"
 
@@ -764,8 +764,13 @@ build_md_table <- function(datos) {
     return(gt::gt(tibble::tibble(Mensaje = "No hay sesiones MD en los datos.")))
   }
 
-  # Most recent MD date
-  latest_md_date <- max(all_md$date, na.rm = TRUE)
+  # Use selected date or fall back to most recent
+  target_date <- if (!is.null(selected_date) && !is.na(selected_date)) {
+    as.Date(selected_date)
+  } else {
+    max(all_md$date, na.rm = TRUE)
+  }
+  latest_md_date <- target_date
   latest_md      <- all_md |> dplyr::filter(date == latest_md_date)
 
   # Only include players who actually participated (non-NA / non-zero session_duration)
@@ -938,6 +943,20 @@ build_md_table <- function(datos) {
 }
 
 # ----------------------------
+# Pre-compute MD date choices (used in selectInput)
+# ----------------------------
+md_dates_vec <- datos |>
+  dplyr::filter(match_day == "MD") |>
+  dplyr::distinct(date) |>
+  dplyr::arrange(dplyr::desc(date)) |>
+  dplyr::pull(date)
+
+md_date_choices <- setNames(
+  as.character(md_dates_vec),
+  format(md_dates_vec, "%d/%m/%Y")
+)
+
+# ----------------------------
 # UI
 # ----------------------------
 ui <- fluidPage(
@@ -982,8 +1001,24 @@ ui <- fluidPage(
     tabPanel("Sprints Abs. >24 km/h", plotOutput("plot_sprints_abs",  height = "700px")),
     tabPanel("Sprints Rel. >85%",     plotOutput("plot_sprints_rel",  height = "700px")),
     tabPanel("Partido (MD)",
-             div(style = "overflow-x: auto; padding: 20px;",
-                 gt::gt_output("tabla_md"))),
+      fluidRow(
+        column(3,
+          tags$div(style = "padding: 20px 20px 0 20px;",
+            selectInput(
+              inputId  = "md_date",
+              label    = "Partido:",
+              choices  = md_date_choices,
+              selected = md_date_choices[1]
+            )
+          )
+        )
+      ),
+      fluidRow(
+        column(12,
+          div(style = "overflow-x: auto; padding: 10px 20px 20px 20px;",
+              gt::gt_output("tabla_md")))
+      )
+    ),
     tabPanel("Perfil Jugador",
       fluidRow(
         column(3,
@@ -1073,7 +1108,8 @@ server <- function(input, output, session) {
   })
 
   output$tabla_md <- gt::render_gt({
-    build_md_table(datos)
+    req(input$md_date)
+    build_md_table(datos, input$md_date)
   })
 
   output$tabla_perfil <- gt::render_gt({
