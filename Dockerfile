@@ -24,9 +24,6 @@ COPY data data
 RUN R -e "install.packages('renv', repos='https://cloud.r-project.org')" && \
     R -e "renv::restore(prompt = FALSE)" && \
     R -e "install.packages('rsconnect', repos='https://cloud.r-project.org')" && \
-    R -e "renv::snapshot(prompt = FALSE)"
-
-# Strip non-standard array fields from renv.lock so rsconnect can parse it
-RUN python3 fix_lock.py
+    rm renv.lock
 
 CMD ["Rscript", "deploy.R"]
