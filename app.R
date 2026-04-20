@@ -751,6 +751,193 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
 }
 
 # ----------------------------
+# Match Day (MD) table
+# ----------------------------
+build_md_table <- function(datos) {
+  col_above <- "#D5F5E3"
+  col_below <- "#FADBD8"
+
+  # Filter to MD sessions only
+  all_md <- datos |> dplyr::filter(match_day == "MD")
+
+  if (nrow(all_md) == 0) {
+    return(gt::gt(tibble::tibble(Mensaje = "No hay sesiones MD en los datos.")))
+  }
+
+  # Most recent MD date
+  latest_md_date <- max(all_md$date, na.rm = TRUE)
+  latest_md      <- all_md |> dplyr::filter(date == latest_md_date)
+
+  # Only include players who actually participated (non-NA / non-zero session_duration)
+  if ("session_duration" %in% names(latest_md)) {
+    latest_md <- latest_md |>
+      dplyr::filter(!is.na(session_duration) & session_duration > 0)
+  }
+
+  active_players <- unique(latest_md$player)
+
+  if (length(active_players) == 0) {
+    return(gt::gt(tibble::tibble(
+      Mensaje = "No hay jugadores con datos en el \u00faltimo partido (MD)."
+    )))
+  }
+
+  # Columns that always exist in datos
+  core_sum_cols <- c("distance_m", "HSR_abs_dist", "distance_abs",
+                     "sprints_abs_count", "acc_plus_decc", "player_load")
+  core_max_cols <- "max_speed"
+
+  # Optional columns — only use if present
+  opt_sum_cols  <- intersect("HMLD_m",  names(all_md))
+  opt_num_cols  <- intersect("min",     names(all_md))   # minutes played
+  opt_meta_cols <- intersect(c("group", "pos"), names(all_md))
+
+  all_agg_cols <- c(core_sum_cols, opt_sum_cols, core_max_cols, opt_num_cols)
+
+  # Historical MD averages per player (across every MD session)
+  player_md_avgs <- all_md |>
+    dplyr::group_by(player) |>
+    dplyr::summarise(
+      dplyr::across(
+        dplyr::all_of(intersect(all_agg_cols, names(all_md))),
+        \(x) mean(x, na.rm = TRUE),
+        .names = "avg_{.col}"
+      ),
+      .groups = "drop"
+    )
+
+  # Columns to show in table (ordered)
+  display_order <- c("player", opt_meta_cols, opt_num_cols,
+                     core_sum_cols, opt_sum_cols, core_max_cols)
+  select_cols   <- intersect(display_order, names(latest_md))
+
+  # Join current MD data with historical averages
+  report_df <- latest_md |>
+    dplyr::filter(player %in% active_players) |>
+    dplyr::select(dplyr::all_of(select_cols)) |>
+    dplyr::left_join(player_md_avgs, by = "player")
+
+  # Sort: group (if exists) then distance descending
+  if ("group" %in% names(report_df)) {
+    report_df <- report_df |> dplyr::arrange(group, dplyr::desc(distance_m))
+  } else {
+    report_df <- report_df |> dplyr::arrange(dplyr::desc(distance_m))
+  }
+
+  # Metrics to colour-shade (current value vs. historical MD avg)
+  metric_cfg <- list(
+    list(col = "distance_m",        avg = "avg_distance_m"),
+    list(col = "HSR_abs_dist",      avg = "avg_HSR_abs_dist"),
+    list(col = "distance_abs",      avg = "avg_distance_abs"),
+    list(col = "sprints_abs_count", avg = "avg_sprints_abs_count"),
+    list(col = "acc_plus_decc",     avg = "avg_acc_plus_decc"),
+    list(col = "player_load",       avg = "avg_player_load"),
+    list(col = "HMLD_m",            avg = "avg_HMLD_m"),
+    list(col = "max_speed",         avg = "avg_max_speed")
+  )
+  metric_cfg <- Filter(
+    function(cfg) cfg$col %in% names(report_df) && cfg$avg %in% names(report_df),
+    metric_cfg
+  )
+
+  # Strip avg_ columns from the display frame (used only for row-level comparisons)
+  display_df <- report_df |> dplyr::select(-dplyr::starts_with("avg_"))
+
+  # Column labels
+  all_col_labels <- list(
+    player            = "Jugador",
+    group             = "Grupo",
+    pos               = "Pos.",
+    min               = "Min.",
+    distance_m        = "Dist. Total (m)",
+    HSR_abs_dist      = "HSR (m)",
+    distance_abs      = "Sprint (m)",
+    sprints_abs_count = "N\u00ba Sprints",
+    acc_plus_decc     = "ACC+DECC",
+    player_load       = "Player Load",
+    HMLD_m            = "HMLD (m)",
+    max_speed         = "Vel. M\u00e1x. (km/h)"
+  )
+  col_labels_filtered <- all_col_labels[
+    intersect(names(all_col_labels), names(display_df))
+  ]
+
+  # gt groupname_col (only when group column is present)
+  grp_col <- if ("group" %in% names(display_df)) "group" else NULL
+
+  tbl <- display_df |>
+    gt::gt(groupname_col = grp_col) |>
+    gt::tab_header(
+      title    = paste0("Partido (MD) \u00b7 ", format(latest_md_date, "%d/%m/%Y")),
+      subtitle = "Verde: sobre promedio hist\u00f3rico MD del jugador \u00b7 Rojo: bajo promedio"
+    ) |>
+    gt::cols_label(.list = col_labels_filtered) |>
+    gt::fmt_number(
+      columns  = dplyr::any_of(c("distance_m", "HSR_abs_dist", "distance_abs", "HMLD_m")),
+      decimals = 0, use_seps = FALSE
+    ) |>
+    gt::fmt_number(
+      columns  = dplyr::any_of(c("sprints_abs_count", "acc_plus_decc", "player_load")),
+      decimals = 0, use_seps = FALSE
+    ) |>
+    gt::fmt_number(
+      columns  = dplyr::any_of(c("max_speed", "min")),
+      decimals = 1, use_seps = FALSE
+    ) |>
+    gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
+    gt::tab_style(
+      style     = gt::cell_text(weight = "bold"),
+      locations = gt::cells_body(columns = player)
+    ) |>
+    gt::tab_options(
+      table.font.size                 = gt::px(12),
+      heading.title.font.size         = gt::px(16),
+      heading.subtitle.font.size      = gt::px(11),
+      column_labels.font.weight       = "bold",
+      column_labels.background.color  = "#0B1B4A",
+      row.striping.include_table_body = TRUE,
+      row.striping.background_color   = "#f8f9fa",
+      table.border.top.color          = "#0B1B4A",
+      table.border.top.width          = gt::px(3),
+      table.width                     = pct(100),
+      data_row.padding                = gt::px(4),
+      column_labels.padding           = gt::px(4)
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(color = "white", weight = "bold"),
+      locations = gt::cells_column_labels(columns = tidyselect::everything())
+    )
+
+  # Hide group column when used as groupname_col (gt keeps it visible by default)
+  if (!is.null(grp_col)) {
+    tbl <- gt::cols_hide(tbl, columns = dplyr::all_of(grp_col))
+  }
+
+  # Apply green / red cell shading vs historical MD average
+  for (cfg in metric_cfg) {
+    col_name <- cfg$col
+    avg_name <- cfg$avg
+    curr <- report_df[[col_name]]
+    hist <- report_df[[avg_name]]
+
+    above_rows <- which(!is.na(curr) & !is.na(hist) & curr > hist)
+    below_rows <- which(!is.na(curr) & !is.na(hist) & curr < hist)
+
+    if (length(above_rows) > 0)
+      tbl <- gt::tab_style(tbl,
+        style     = gt::cell_fill(color = col_above),
+        locations = gt::cells_body(columns = dplyr::all_of(col_name), rows = above_rows))
+
+    if (length(below_rows) > 0)
+      tbl <- gt::tab_style(tbl,
+        style     = gt::cell_fill(color = col_below),
+        locations = gt::cells_body(columns = dplyr::all_of(col_name), rows = below_rows))
+  }
+
+  tbl
+}
+
+# ----------------------------
 # UI
 # ----------------------------
 ui <- fluidPage(
@@ -794,6 +981,9 @@ ui <- fluidPage(
     tabPanel("% Vel. M\u00e1x. Hist", plotOutput("plot_pct_speed",    height = "700px")),
     tabPanel("Sprints Abs. >24 km/h", plotOutput("plot_sprints_abs",  height = "700px")),
     tabPanel("Sprints Rel. >85%",     plotOutput("plot_sprints_rel",  height = "700px")),
+    tabPanel("Partido (MD)",
+             div(style = "overflow-x: auto; padding: 20px;",
+                 gt::gt_output("tabla_md"))),
     tabPanel("Perfil Jugador",
       fluidRow(
         column(3,
@@ -880,6 +1070,10 @@ server <- function(input, output, session) {
   output$tabla_resumen <- gt::render_gt({
     req(datos_win())
     build_resumen_table(datos_win())
+  })
+
+  output$tabla_md <- gt::render_gt({
+    build_md_table(datos)
   })
 
   output$tabla_perfil <- gt::render_gt({
