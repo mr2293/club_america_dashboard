@@ -9,6 +9,7 @@ library(lubridate)
 library(scales)
 library(readxl)
 library(gt)
+library(httr)
 
 source("cargas7.R")
 
@@ -943,6 +944,323 @@ build_md_table <- function(datos, selected_date = NULL) {
 }
 
 # ----------------------------
+# ACWR (Acute:Chronic Workload Ratio)
+# ----------------------------
+build_acwr_table <- function(datos) {
+  ref_date <- max(datos$date, na.rm = TRUE)
+  start_7d <- ref_date - lubridate::days(6)
+
+  # Acute: 7-day sum
+  acute <- datos |>
+    dplyr::filter(date >= start_7d, date <= ref_date) |>
+    dplyr::group_by(player) |>
+    dplyr::summarise(
+      acute_dist = sum(distance_m,   na.rm = TRUE),
+      acute_hsr  = sum(HSR_abs_dist, na.rm = TRUE),
+      acute_pl   = sum(player_load,  na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  # Chronic: 4-week weekly average (reuses existing helper)
+  chr_dist <- get_4w_weekly_avg(datos, "distance_m",   ref_date = ref_date) |> dplyr::rename(chr_dist = avg_4w)
+  chr_hsr  <- get_4w_weekly_avg(datos, "HSR_abs_dist", ref_date = ref_date) |> dplyr::rename(chr_hsr  = avg_4w)
+  chr_pl   <- get_4w_weekly_avg(datos, "player_load",  ref_date = ref_date) |> dplyr::rename(chr_pl   = avg_4w)
+
+  df <- acute |>
+    dplyr::left_join(chr_dist, by = "player") |>
+    dplyr::left_join(chr_hsr,  by = "player") |>
+    dplyr::left_join(chr_pl,   by = "player") |>
+    dplyr::mutate(
+      acwr_dist = dplyr::if_else(!is.na(chr_dist) & chr_dist > 0, round(acute_dist / chr_dist, 2), NA_real_),
+      acwr_hsr  = dplyr::if_else(!is.na(chr_hsr)  & chr_hsr  > 0, round(acute_hsr  / chr_hsr,  2), NA_real_),
+      acwr_pl   = dplyr::if_else(!is.na(chr_pl)   & chr_pl   > 0, round(acute_pl   / chr_pl,   2), NA_real_)
+    ) |>
+    dplyr::arrange(dplyr::desc(acwr_dist))
+
+  date_label <- paste0(format(start_7d, "%d/%m"), " \u2013 ", format(ref_date, "%d/%m/%Y"))
+
+  tbl <- df |>
+    dplyr::select(player, acwr_dist, acwr_hsr, acwr_pl) |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = paste0("ACWR \u00b7 ", date_label),
+      subtitle = gt::md(
+        "**Azul** < 0.8 \u2014 subcarga &nbsp;|&nbsp; **Verde** 0.8\u20131.3 \u2014 \u00f3ptimo &nbsp;|&nbsp; **Naranja** 1.3\u20131.5 \u2014 precauci\u00f3n &nbsp;|&nbsp; **Rojo** > 1.5 \u2014 riesgo"
+      )
+    ) |>
+    gt::cols_label(
+      player    = "Jugador",
+      acwr_dist = "Dist. Total",
+      acwr_hsr  = "HSR",
+      acwr_pl   = "Player Load"
+    ) |>
+    gt::tab_spanner(
+      label   = "ACWR \u2014 Carga Aguda \u00f7 Carga Cr\u00f3nica (prom. semanal 28 d\u00edas)",
+      columns = c(acwr_dist, acwr_hsr, acwr_pl)
+    ) |>
+    gt::fmt_number(columns = c(acwr_dist, acwr_hsr, acwr_pl), decimals = 2) |>
+    gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
+    gt::tab_style(
+      style     = gt::cell_text(weight = "bold"),
+      locations = gt::cells_body(columns = player)
+    ) |>
+    gt::tab_options(
+      table.font.size                 = gt::px(13),
+      heading.title.font.size         = gt::px(16),
+      heading.subtitle.font.size      = gt::px(11),
+      column_labels.font.weight       = "bold",
+      column_labels.background.color  = "#0B1B4A",
+      row.striping.include_table_body = TRUE,
+      row.striping.background_color   = "#f8f9fa",
+      table.border.top.color          = "#0B1B4A",
+      table.border.top.width          = gt::px(3),
+      table.width                     = gt::pct(65),
+      data_row.padding                = gt::px(5)
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(color = "white", weight = "bold"),
+      locations = gt::cells_column_labels(columns = tidyselect::everything())
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(color = "white", weight = "bold"),
+      locations = gt::cells_column_spanners(spanners = tidyselect::everything())
+    )
+
+  # Zone coloring per column — batch by zone (4 calls × 3 cols = 12 total)
+  zone_map <- list(
+    list(color = "#AED6F1", test = function(x) !is.na(x) & x < 0.8),
+    list(color = "#D5F5E3", test = function(x) !is.na(x) & x >= 0.8 & x <= 1.3),
+    list(color = "#FAD7A0", test = function(x) !is.na(x) & x > 1.3  & x <= 1.5),
+    list(color = "#FADBD8", test = function(x) !is.na(x) & x > 1.5)
+  )
+  for (col in c("acwr_dist", "acwr_hsr", "acwr_pl")) {
+    vals <- df[[col]]
+    for (z in zone_map) {
+      rows <- which(z$test(vals))
+      if (length(rows) > 0)
+        tbl <- gt::tab_style(tbl,
+          style     = gt::cell_fill(color = z$color),
+          locations = gt::cells_body(columns = dplyr::all_of(col), rows = rows))
+    }
+  }
+
+  tbl
+}
+
+# ----------------------------
+# MD-relative session profiles
+# ----------------------------
+build_md_relative_plot <- function(datos, metric = "distance_m") {
+  metric_labels <- c(
+    distance_m        = "Distancia Total (m)",
+    HSR_abs_dist      = "HSR (m)",
+    distance_abs      = "Sprint (m)",
+    acc_plus_decc     = "ACC + DECC",
+    player_load       = "Player Load",
+    sprints_abs_count = "Sprints >24 km/h"
+  )
+
+  md_dates <- datos |>
+    dplyr::filter(match_day == "MD") |>
+    dplyr::distinct(date) |>
+    dplyr::pull(date)
+
+  if (length(md_dates) == 0) {
+    return(
+      ggplot2::ggplot() +
+        ggplot2::annotate("text", x = 0.5, y = 0.5, label = "No hay sesiones MD en los datos.", size = 6) +
+        ggplot2::theme_void()
+    )
+  }
+
+  # For every session date, find the nearest MD and compute relative day
+  rel_map <- tidyr::expand_grid(
+    date    = unique(datos$date),
+    md_date = md_dates
+  ) |>
+    dplyr::mutate(diff = as.integer(date - md_date)) |>
+    dplyr::group_by(date) |>
+    dplyr::slice_min(abs(diff), n = 1, with_ties = FALSE) |>
+    dplyr::ungroup() |>
+    dplyr::select(date, rel_day = diff)
+
+  rel_levels <- c(paste0("MD-", 5:1), "MD", paste0("MD+", 1:3))
+
+  avg_by_day <- datos |>
+    dplyr::left_join(rel_map, by = "date") |>
+    dplyr::filter(rel_day >= -5, rel_day <= 3) |>
+    dplyr::group_by(rel_day) |>
+    dplyr::summarise(avg_val = mean(.data[[metric]], na.rm = TRUE), .groups = "drop") |>
+    dplyr::mutate(
+      label = dplyr::case_when(
+        rel_day == 0 ~ "MD",
+        rel_day <  0 ~ paste0("MD", rel_day),
+        rel_day >  0 ~ paste0("MD+", rel_day)
+      ),
+      label    = factor(label, levels = rel_levels),
+      is_match = rel_day == 0
+    )
+
+  metric_name <- metric_labels[[metric]]
+
+  ggplot2::ggplot(avg_by_day, ggplot2::aes(x = label, y = avg_val, fill = is_match)) +
+    ggplot2::geom_col(color = "white", linewidth = 0.3, width = 0.7) +
+    ggplot2::geom_text(
+      ggplot2::aes(label = scales::comma(round(avg_val, 0))),
+      color = "white", size = 4.5, fontface = "bold", vjust = 1.5
+    ) +
+    ggplot2::scale_fill_manual(values = c("FALSE" = "#0B1B4A", "TRUE" = "#C1121F"), guide = "none") +
+    ggplot2::scale_y_continuous(labels = scales::comma, expand = ggplot2::expansion(mult = c(0, 0.08))) +
+    ggplot2::labs(
+      title    = paste0("Perfil por D\u00eda Relativo al Partido \u00b7 ", metric_name),
+      subtitle = "Promedio del equipo por tipo de sesi\u00f3n \u00b7 Rojo = d\u00eda de partido (MD)",
+      x = NULL, y = metric_name
+    ) +
+    base_theme() +
+    ggplot2::theme(
+      panel.grid.major.x = ggplot2::element_blank(),
+      panel.grid.major.y = ggplot2::element_line(color = "grey85", linewidth = 0.4)
+    )
+}
+
+# ----------------------------
+# Claude API helpers
+# ----------------------------
+call_claude_api <- function(prompt, max_tokens = 500) {
+  api_key <- Sys.getenv("ANTHROPIC_API_KEY")
+  if (nchar(trimws(api_key)) == 0)
+    return("Error: la variable ANTHROPIC_API_KEY no est\u00e1 configurada en el servidor.")
+
+  tryCatch({
+    resp <- httr::POST(
+      url  = "https://api.anthropic.com/v1/messages",
+      httr::add_headers(
+        "x-api-key"         = api_key,
+        "anthropic-version" = "2023-06-01",
+        "content-type"      = "application/json"
+      ),
+      body   = jsonlite::toJSON(list(
+        model      = "claude-haiku-4-5-20251001",
+        max_tokens = max_tokens,
+        messages   = list(list(role = "user", content = prompt))
+      ), auto_unbox = TRUE),
+      encode = "raw"
+    )
+    if (httr::status_code(resp) != 200) {
+      err <- httr::content(resp, as = "parsed")
+      return(paste0("Error de API (HTTP ", httr::status_code(resp), "): ",
+                    err$error$message))
+    }
+    parsed <- httr::content(resp, as = "parsed", encoding = "UTF-8")
+    parsed$content[[1]]$text
+  }, error = function(e) {
+    paste0("Error de conexi\u00f3n: ", conditionMessage(e))
+  })
+}
+
+build_narrative_prompt <- function(datos) {
+  ref_date <- max(datos$date, na.rm = TRUE)
+  start_7d <- ref_date - lubridate::days(6)
+
+  acute <- datos |>
+    dplyr::filter(date >= start_7d, date <= ref_date) |>
+    dplyr::group_by(player) |>
+    dplyr::summarise(
+      dist = sum(distance_m,   na.rm = TRUE),
+      hsr  = sum(HSR_abs_dist, na.rm = TRUE),
+      pl   = sum(player_load,  na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  chr_dist <- get_4w_weekly_avg(datos, "distance_m", ref_date = ref_date)
+
+  df <- acute |>
+    dplyr::left_join(chr_dist, by = "player") |>
+    dplyr::mutate(
+      acwr = dplyr::if_else(!is.na(avg_4w) & avg_4w > 0, round(dist / avg_4w, 2), NA_real_)
+    ) |>
+    dplyr::arrange(dplyr::desc(dist))
+
+  rows <- df |>
+    dplyr::mutate(
+      txt = sprintf("%-22s | Dist: %5.0f m | HSR: %4.0f m | PL: %5.0f | ACWR: %s",
+                    player, dist, hsr, pl,
+                    dplyr::if_else(is.na(acwr), "N/D", sprintf("%.2f", acwr)))
+    ) |>
+    dplyr::pull(txt)
+
+  recent_mds <- datos |>
+    dplyr::filter(match_day == "MD") |>
+    dplyr::distinct(date) |>
+    dplyr::arrange(dplyr::desc(date)) |>
+    dplyr::slice_head(n = 3) |>
+    dplyr::pull(date) |>
+    format("%d/%m/%Y") |>
+    paste(collapse = ", ")
+
+  paste0(
+    "Eres un analista de ciencias del deporte del Club Am\u00e9rica.\n",
+    "Analiza los datos de carga f\u00edsica y escribe UN solo p\u00e1rrafo de 4-5 oraciones en espa\u00f1ol.\n",
+    "S\u00e9 concreto: menciona jugadores por nombre y sus valores num\u00e9ricos exactos.\n",
+    "Comenta: qui\u00e9n tuvo m\u00e1s y menos carga, ACWRs preocupantes (>1.3 o <0.8), ",
+    "y c\u00f3mo fue la semana en general.\n",
+    "No uses vi\u00f1etas. No pongas t\u00edtulo. Solo el p\u00e1rrafo.\n\n",
+    "PER\u00cdODO: ", format(start_7d, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
+    "\u00daltimos partidos (MD): ", if (nchar(recent_mds) == 0) "ninguno" else recent_mds, "\n\n",
+    "DATOS POR JUGADOR:\n",
+    paste(rows, collapse = "\n")
+  )
+}
+
+build_nl_prompt <- function(datos, question) {
+  ref_date <- max(datos$date, na.rm = TRUE)
+  min_date <- min(datos$date, na.rm = TRUE)
+  start_7d <- ref_date - lubridate::days(6)
+
+  summary_7d <- datos |>
+    dplyr::filter(date >= start_7d, date <= ref_date) |>
+    dplyr::group_by(player) |>
+    dplyr::summarise(
+      dist    = sum(distance_m,        na.rm = TRUE),
+      hsr     = sum(HSR_abs_dist,      na.rm = TRUE),
+      spr_m   = sum(distance_abs,      na.rm = TRUE),
+      n_spr   = sum(sprints_abs_count, na.rm = TRUE),
+      pl      = sum(player_load,       na.rm = TRUE),
+      vmax    = max(max_speed,         na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  rows <- summary_7d |>
+    dplyr::mutate(
+      txt = sprintf("%-22s | %5.0f m | HSR %4.0f | Spr %4.0f m | N\u00baSpr %2.0f | PL %5.0f | Vmax %.1f km/h",
+                    player, dist, hsr, spr_m, n_spr, pl, vmax)
+    ) |>
+    dplyr::pull(txt)
+
+  md_dates_str <- datos |>
+    dplyr::filter(match_day == "MD") |>
+    dplyr::distinct(date) |>
+    dplyr::arrange(dplyr::desc(date)) |>
+    dplyr::slice_head(n = 5) |>
+    dplyr::pull(date) |>
+    format("%d/%m/%Y") |>
+    paste(collapse = ", ")
+
+  paste0(
+    "Eres un analista de ciencias del deporte del Club Am\u00e9rica. ",
+    "Responde la siguiente pregunta usando los datos disponibles. ",
+    "S\u00e9 directo, menciona valores num\u00e9ricos cuando aplique. Responde en espa\u00f1ol.\n\n",
+    "DATOS DISPONIBLES: ", format(min_date, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
+    "PARTIDOS RECIENTES (MD): ",
+    if (nchar(md_dates_str) == 0) "ninguno" else md_dates_str, "\n\n",
+    "RESUMEN \u00daltimos 7 d\u00edas:\n",
+    "Jugador                 | Dist    | HSR  | Sprint | N\u00baSpr | PL    | Vmax\n",
+    paste(rows, collapse = "\n"), "\n\n",
+    "PREGUNTA: ", question
+  )
+}
+
+# ----------------------------
 # Pre-compute MD date choices (used in selectInput)
 # ----------------------------
 md_dates_vec <- datos |>
@@ -1038,6 +1356,90 @@ ui <- fluidPage(
               gt::gt_output("tabla_perfil"))
         )
       )
+    ),
+    tabPanel("ACWR",
+      fluidRow(
+        column(12,
+          div(style = "padding: 20px; overflow-x: auto;",
+              gt::gt_output("tabla_acwr"))
+        )
+      )
+    ),
+    tabPanel("Perfil MD",
+      fluidRow(
+        column(3,
+          tags$div(style = "padding: 20px 20px 0 20px;",
+            selectInput(
+              inputId  = "md_rel_metric",
+              label    = "M\u00e9trica:",
+              choices  = c(
+                "Distancia Total"  = "distance_m",
+                "HSR"              = "HSR_abs_dist",
+                "Sprint"           = "distance_abs",
+                "ACC + DECC"       = "acc_plus_decc",
+                "Player Load"      = "player_load",
+                "Sprints >24 km/h" = "sprints_abs_count"
+              ),
+              selected = "distance_m"
+            )
+          )
+        )
+      ),
+      fluidRow(
+        column(12,
+          plotOutput("plot_md_relative", height = "520px"))
+      )
+    ),
+    tabPanel("An\u00e1lisis IA",
+      fluidRow(
+        column(12,
+          tags$div(style = "padding: 24px 24px 8px 24px;",
+            tags$h4("Narrativa Semanal",
+                    style = "font-weight:700; color:#0B1B4A; margin-bottom:4px;"),
+            tags$p("Resumen autom\u00e1tico sobre la carga de los \u00faltimos 7 d\u00edas.",
+                   style = "color:#6b7280; font-size:14px; margin-bottom:12px;"),
+            actionButton("btn_narrative", "Generar Narrativa",
+                         style = paste0("background-color:#0B1B4A; color:white; font-weight:bold;",
+                                        " border:none; border-radius:4px; padding:8px 18px;")),
+            tags$div(
+              style = paste0("margin-top:14px; padding:16px; background:#f8f9fa;",
+                             " border-left:4px solid #0B1B4A; border-radius:4px; min-height:80px;",
+                             " font-size:15px; line-height:1.65;"),
+              textOutput("narrative_out")
+            )
+          )
+        )
+      ),
+      tags$hr(style = "margin: 4px 24px;"),
+      fluidRow(
+        column(12,
+          tags$div(style = "padding: 16px 24px 24px 24px;",
+            tags$h4("Consulta en Lenguaje Natural",
+                    style = "font-weight:700; color:#0B1B4A; margin-bottom:4px;"),
+            tags$p("Haz cualquier pregunta sobre los datos de carga f\u00edsica.",
+                   style = "color:#6b7280; font-size:14px; margin-bottom:12px;"),
+            fluidRow(
+              column(8,
+                textInput("nl_query", NULL, width = "100%",
+                          placeholder = "\u00bfQui\u00e9n tuvo m\u00e1s HSR la \u00faltima semana?")
+              ),
+              column(2,
+                tags$div(style = "padding-top:0px;",
+                  actionButton("btn_query", "Consultar",
+                               style = paste0("background-color:#C1121F; color:white; font-weight:bold;",
+                                              " border:none; border-radius:4px; padding:8px 18px;"))
+                )
+              )
+            ),
+            tags$div(
+              style = paste0("margin-top:14px; padding:16px; background:#f8f9fa;",
+                             " border-left:4px solid #C1121F; border-radius:4px; min-height:80px;",
+                             " font-size:15px; line-height:1.65;"),
+              textOutput("nl_answer_out")
+            )
+          )
+        )
+      )
     )
   )
 )
@@ -1116,6 +1518,40 @@ server <- function(input, output, session) {
     req(datos_win(), input$profile_player)
     build_player_profile(datos_win(), input$profile_player)
   })
+
+  # ACWR — always anchored to the most recent date in datos
+  output$tabla_acwr <- gt::render_gt({
+    build_acwr_table(datos)
+  })
+
+  # MD-relative profile — reacts to metric selector
+  output$plot_md_relative <- renderPlot({
+    req(input$md_rel_metric)
+    build_md_relative_plot(datos, input$md_rel_metric)
+  })
+
+  # IA — narrative (button-triggered, blocking with progress indicator)
+  narrative_val <- reactiveVal("")
+  observeEvent(input$btn_narrative, {
+    withProgress(message = "Consultando IA\u2026", value = 0.6, {
+      prompt <- build_narrative_prompt(datos)
+      result <- call_claude_api(prompt, max_tokens = 450)
+      narrative_val(result)
+    })
+  })
+  output$narrative_out <- renderText(narrative_val())
+
+  # IA — natural language query (button-triggered)
+  nl_answer_val <- reactiveVal("")
+  observeEvent(input$btn_query, {
+    req(nchar(trimws(input$nl_query)) > 0)
+    withProgress(message = "Consultando IA\u2026", value = 0.6, {
+      prompt <- build_nl_prompt(datos, input$nl_query)
+      result <- call_claude_api(prompt, max_tokens = 500)
+      nl_answer_val(result)
+    })
+  })
+  output$nl_answer_out <- renderText(nl_answer_val())
 }
 
 shinyApp(ui, server)
