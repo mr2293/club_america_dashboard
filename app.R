@@ -1060,46 +1060,32 @@ build_md_relative_plot <- function(datos, metric = "distance_m") {
     sprints_abs_count = "Sprints >24 km/h"
   )
 
-  md_dates <- datos |>
-    dplyr::filter(match_day == "MD") |>
-    dplyr::distinct(date) |>
-    dplyr::pull(date)
+  # Map match_day labels directly — no proximity calculation needed
+  rel_levels <- c("MD-5", "MD-4", "MD-3", "MD-2", "MD-1", "MD", "MD+1", "MD+2")
 
-  if (length(md_dates) == 0) {
+  label_map <- c(
+    "-5" = "MD-5", "-4" = "MD-4", "-3" = "MD-3",
+    "-2" = "MD-2", "-1" = "MD-1", "MD" = "MD",
+    "+1" = "MD+1", "+2" = "MD+2"
+  )
+
+  avg_by_day <- datos |>
+    dplyr::filter(match_day %in% names(label_map)) |>
+    dplyr::mutate(
+      label    = factor(label_map[match_day], levels = rel_levels),
+      is_match = match_day == "MD"
+    ) |>
+    dplyr::group_by(label, is_match) |>
+    dplyr::summarise(avg_val = mean(.data[[metric]], na.rm = TRUE), .groups = "drop")
+
+  if (nrow(avg_by_day) == 0) {
     return(
       ggplot2::ggplot() +
-        ggplot2::annotate("text", x = 0.5, y = 0.5, label = "No hay sesiones MD en los datos.", size = 6) +
+        ggplot2::annotate("text", x = 0.5, y = 0.5,
+                          label = "No hay sesiones MD etiquetadas en los datos.", size = 6) +
         ggplot2::theme_void()
     )
   }
-
-  # For every session date, find the nearest MD and compute relative day
-  rel_map <- tidyr::expand_grid(
-    date    = unique(datos$date),
-    md_date = md_dates
-  ) |>
-    dplyr::mutate(diff = as.integer(date - md_date)) |>
-    dplyr::group_by(date) |>
-    dplyr::slice_min(abs(diff), n = 1, with_ties = FALSE) |>
-    dplyr::ungroup() |>
-    dplyr::select(date, rel_day = diff)
-
-  rel_levels <- c(paste0("MD-", 5:1), "MD", paste0("MD+", 1:3))
-
-  avg_by_day <- datos |>
-    dplyr::left_join(rel_map, by = "date") |>
-    dplyr::filter(rel_day >= -5, rel_day <= 3) |>
-    dplyr::group_by(rel_day) |>
-    dplyr::summarise(avg_val = mean(.data[[metric]], na.rm = TRUE), .groups = "drop") |>
-    dplyr::mutate(
-      label = dplyr::case_when(
-        rel_day == 0 ~ "MD",
-        rel_day <  0 ~ paste0("MD", rel_day),
-        rel_day >  0 ~ paste0("MD+", rel_day)
-      ),
-      label    = factor(label, levels = rel_levels),
-      is_match = rel_day == 0
-    )
 
   metric_name <- metric_labels[[metric]]
 
@@ -1217,12 +1203,12 @@ build_narrative_prompt <- function(datos) {
 }
 
 build_nl_prompt <- function(datos, question) {
-  ref_date <- max(datos$date, na.rm = TRUE)
-  min_date <- min(datos$date, na.rm = TRUE)
-  start_7d <- ref_date - lubridate::days(6)
+  ref_date  <- max(datos$date, na.rm = TRUE)
+  min_date  <- min(datos$date, na.rm = TRUE)
+  start_30d <- ref_date - lubridate::days(29)
 
   summary_7d <- datos |>
-    dplyr::filter(date >= start_7d, date <= ref_date) |>
+    dplyr::filter(date >= start_30d, date <= ref_date) |>
     dplyr::group_by(player) |>
     dplyr::summarise(
       dist  = sum(distance_m,        na.rm = TRUE),
@@ -1273,7 +1259,7 @@ build_nl_prompt <- function(datos, question) {
     "DATOS DISPONIBLES: ", format(min_date, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
     "PARTIDOS RECIENTES (MD): ",
     if (nchar(md_dates_str) == 0) "ninguno" else md_dates_str, "\n\n",
-    "RANKINGS \u00daltimos 7 d\u00edas (ordenados de mayor a menor):\n\n",
+    "RANKINGS \u00daltimos 30 d\u00edas (ordenados de mayor a menor):\n\n",
     rankings, "\n\n",
     "PREGUNTA: ", question
   )
