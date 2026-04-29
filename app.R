@@ -1204,7 +1204,11 @@ build_narrative_prompt <- function(datos) {
     "S\u00e9 concreto: menciona jugadores por nombre y sus valores num\u00e9ricos exactos.\n",
     "Comenta: qui\u00e9n tuvo m\u00e1s y menos carga, ACWRs preocupantes (>1.3 o <0.8), ",
     "y c\u00f3mo fue la semana en general.\n",
-    "No uses vi\u00f1etas. No pongas t\u00edtulo. Solo el p\u00e1rrafo.\n\n",
+    "REGLAS ESTRICTAS — no las rompas bajo ninguna circunstancia:\n",
+    "- No menciones al portero ni a ning\u00fan jugador que juegue en esa posici\u00f3n.\n",
+    "- No menciones aspectos t\u00e1cticos, esquemas de juego, ni decisiones de entrenador.\n",
+    "- No hagas sugerencias, recomendaciones ni predicciones de ning\u00fan tipo.\n",
+    "- No uses vi\u00f1etas. No pongas t\u00edtulo. Solo el p\u00e1rrafo.\n\n",
     "PER\u00cdODO: ", format(start_7d, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
     "\u00daltimos partidos (MD): ", if (nchar(recent_mds) == 0) "ninguno" else recent_mds, "\n\n",
     "DATOS POR JUGADOR:\n",
@@ -1221,21 +1225,36 @@ build_nl_prompt <- function(datos, question) {
     dplyr::filter(date >= start_7d, date <= ref_date) |>
     dplyr::group_by(player) |>
     dplyr::summarise(
-      dist    = sum(distance_m,        na.rm = TRUE),
-      hsr     = sum(HSR_abs_dist,      na.rm = TRUE),
-      spr_m   = sum(distance_abs,      na.rm = TRUE),
-      n_spr   = sum(sprints_abs_count, na.rm = TRUE),
-      pl      = sum(player_load,       na.rm = TRUE),
-      vmax    = max(max_speed,         na.rm = TRUE),
+      dist  = sum(distance_m,        na.rm = TRUE),
+      hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
+      spr_m = sum(distance_abs,      na.rm = TRUE),
+      n_spr = sum(sprints_abs_count, na.rm = TRUE),
+      pl    = sum(player_load,       na.rm = TRUE),
+      vmax  = max(max_speed,         na.rm = TRUE),
       .groups = "drop"
     )
 
-  rows <- summary_7d |>
-    dplyr::mutate(
-      txt = sprintf("%-22s | %5.0f m | HSR %4.0f | Spr %4.0f m | N\u00baSpr %2.0f | PL %5.0f | Vmax %.1f km/h",
-                    player, dist, hsr, spr_m, n_spr, pl, vmax)
-    ) |>
-    dplyr::pull(txt)
+  # Helper: build a numbered ranking for one metric
+  rank_block <- function(df, col, title, fmt) {
+    sorted <- dplyr::arrange(df, dplyr::desc(.data[[col]]))
+    lines  <- sprintf("%2d. %-22s \u2014 %s", seq_len(nrow(sorted)),
+                      sorted$player, fmt(sorted[[col]]))
+    paste0(title, ":\n", paste(lines, collapse = "\n"))
+  }
+
+  m <- function(x) paste0(scales::comma(round(x, 0)), " m")
+  n <- function(x) as.character(round(x, 0))
+  v <- function(x) paste0(round(x, 1), " km/h")
+
+  rankings <- paste(
+    rank_block(summary_7d, "dist",  "DISTANCIA TOTAL",         m),
+    rank_block(summary_7d, "hsr",   "HSR (alta intensidad)",   m),
+    rank_block(summary_7d, "spr_m", "SPRINT (distancia)",      m),
+    rank_block(summary_7d, "n_spr", "N\u00daMERO DE SPRINTS",  n),
+    rank_block(summary_7d, "pl",    "PLAYER LOAD",             n),
+    rank_block(summary_7d, "vmax",  "VELOCIDAD M\u00c1XIMA",   v),
+    sep = "\n\n"
+  )
 
   md_dates_str <- datos |>
     dplyr::filter(match_day == "MD") |>
@@ -1248,14 +1267,14 @@ build_nl_prompt <- function(datos, question) {
 
   paste0(
     "Eres un analista de ciencias del deporte del Club Am\u00e9rica. ",
-    "Responde la siguiente pregunta usando los datos disponibles. ",
-    "S\u00e9 directo, menciona valores num\u00e9ricos cuando aplique. Responde en espa\u00f1ol.\n\n",
+    "Responde la siguiente pregunta usando \u00fanicamente los datos pre-ordenados que se muestran abajo. ",
+    "Los rankings ya est\u00e1n calculados y ordenados correctamente de mayor a menor — \u00fasalos directamente. ",
+    "S\u00e9 directo y menciona valores num\u00e9ricos. Responde en espa\u00f1ol.\n\n",
     "DATOS DISPONIBLES: ", format(min_date, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
     "PARTIDOS RECIENTES (MD): ",
     if (nchar(md_dates_str) == 0) "ninguno" else md_dates_str, "\n\n",
-    "RESUMEN \u00daltimos 7 d\u00edas:\n",
-    "Jugador                 | Dist    | HSR  | Sprint | N\u00baSpr | PL    | Vmax\n",
-    paste(rows, collapse = "\n"), "\n\n",
+    "RANKINGS \u00daltimos 7 d\u00edas (ordenados de mayor a menor):\n\n",
+    rankings, "\n\n",
     "PREGUNTA: ", question
   )
 }
