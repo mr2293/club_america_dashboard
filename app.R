@@ -947,62 +947,113 @@ build_md_table <- function(datos, selected_date = NULL) {
 # ACWR (Acute:Chronic Workload Ratio)
 # ----------------------------
 build_acwr_table <- function(datos) {
-  ref_date <- max(datos$date, na.rm = TRUE)
-  start_7d <- ref_date - lubridate::days(6)
+  ref_date      <- max(datos$date, na.rm = TRUE)
+  start_7d      <- ref_date - lubridate::days(6)
+  ref_date_prev <- ref_date - lubridate::days(7)
+  start_prev    <- ref_date_prev - lubridate::days(6)
 
-  # Acute: 7-day sum
+  safe_acwr <- function(acute, chronic)
+    dplyr::if_else(!is.na(chronic) & chronic > 0, round(acute / chronic, 2), NA_real_)
+
+  # Current acute (last 7 days)
   acute <- datos |>
     dplyr::filter(date >= start_7d, date <= ref_date) |>
     dplyr::group_by(player) |>
     dplyr::summarise(
-      acute_dist = sum(distance_m,   na.rm = TRUE),
-      acute_hsr  = sum(HSR_abs_dist, na.rm = TRUE),
-      acute_pl   = sum(player_load,  na.rm = TRUE),
+      a_dist = sum(distance_m,   na.rm = TRUE),
+      a_hsr  = sum(HSR_abs_dist, na.rm = TRUE),
+      a_pl   = sum(player_load,  na.rm = TRUE),
       .groups = "drop"
     )
 
-  # Chronic: 4-week weekly average (reuses existing helper)
-  chr_dist <- get_4w_weekly_avg(datos, "distance_m",   ref_date = ref_date) |> dplyr::rename(chr_dist = avg_4w)
-  chr_hsr  <- get_4w_weekly_avg(datos, "HSR_abs_dist", ref_date = ref_date) |> dplyr::rename(chr_hsr  = avg_4w)
-  chr_pl   <- get_4w_weekly_avg(datos, "player_load",  ref_date = ref_date) |> dplyr::rename(chr_pl   = avg_4w)
+  # Previous acute (days 7–13)
+  acute_prev <- datos |>
+    dplyr::filter(date >= start_prev, date <= ref_date_prev) |>
+    dplyr::group_by(player) |>
+    dplyr::summarise(
+      p_dist = sum(distance_m,   na.rm = TRUE),
+      p_hsr  = sum(HSR_abs_dist, na.rm = TRUE),
+      p_pl   = sum(player_load,  na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  # Current & previous chronic
+  chr  <- list(
+    dist = get_4w_weekly_avg(datos, "distance_m",   ref_date = ref_date)      |> dplyr::rename(c_dist = avg_4w),
+    hsr  = get_4w_weekly_avg(datos, "HSR_abs_dist", ref_date = ref_date)      |> dplyr::rename(c_hsr  = avg_4w),
+    pl   = get_4w_weekly_avg(datos, "player_load",  ref_date = ref_date)      |> dplyr::rename(c_pl   = avg_4w),
+    pdist= get_4w_weekly_avg(datos, "distance_m",   ref_date = ref_date_prev) |> dplyr::rename(pc_dist= avg_4w),
+    phsr = get_4w_weekly_avg(datos, "HSR_abs_dist", ref_date = ref_date_prev) |> dplyr::rename(pc_hsr = avg_4w),
+    ppl  = get_4w_weekly_avg(datos, "player_load",  ref_date = ref_date_prev) |> dplyr::rename(pc_pl  = avg_4w)
+  )
 
   df <- acute |>
-    dplyr::left_join(chr_dist, by = "player") |>
-    dplyr::left_join(chr_hsr,  by = "player") |>
-    dplyr::left_join(chr_pl,   by = "player") |>
+    dplyr::left_join(acute_prev,  by = "player") |>
+    dplyr::left_join(chr$dist,    by = "player") |>
+    dplyr::left_join(chr$hsr,     by = "player") |>
+    dplyr::left_join(chr$pl,      by = "player") |>
+    dplyr::left_join(chr$pdist,   by = "player") |>
+    dplyr::left_join(chr$phsr,    by = "player") |>
+    dplyr::left_join(chr$ppl,     by = "player") |>
     dplyr::mutate(
-      acwr_dist = dplyr::if_else(!is.na(chr_dist) & chr_dist > 0, round(acute_dist / chr_dist, 2), NA_real_),
-      acwr_hsr  = dplyr::if_else(!is.na(chr_hsr)  & chr_hsr  > 0, round(acute_hsr  / chr_hsr,  2), NA_real_),
-      acwr_pl   = dplyr::if_else(!is.na(chr_pl)   & chr_pl   > 0, round(acute_pl   / chr_pl,   2), NA_real_)
+      acwr_dist  = safe_acwr(a_dist, c_dist),
+      acwr_hsr   = safe_acwr(a_hsr,  c_hsr),
+      acwr_pl    = safe_acwr(a_pl,   c_pl),
+      pacwr_dist = safe_acwr(p_dist, pc_dist),
+      pacwr_hsr  = safe_acwr(p_hsr,  pc_hsr),
+      pacwr_pl   = safe_acwr(p_pl,   pc_pl),
+      delta_dist = acwr_dist - pacwr_dist,
+      delta_hsr  = acwr_hsr  - pacwr_hsr,
+      delta_pl   = acwr_pl   - pacwr_pl
     ) |>
     dplyr::arrange(dplyr::desc(acwr_dist))
+
+  # Format delta as directional arrow + value
+  fmt_delta <- function(delta) {
+    dplyr::case_when(
+      is.na(delta)    ~ "\u2014",
+      delta >  0.005  ~ paste0("\u2191 +", formatC(delta, digits = 2, format = "f")),
+      delta < -0.005  ~ paste0("\u2193 ",  formatC(delta, digits = 2, format = "f")),
+      TRUE            ~ "\u2192 0.00"
+    )
+  }
+
+  df <- df |>
+    dplyr::mutate(
+      trend_dist = fmt_delta(delta_dist),
+      trend_hsr  = fmt_delta(delta_hsr),
+      trend_pl   = fmt_delta(delta_pl)
+    )
 
   date_label <- paste0(format(start_7d, "%d/%m"), " \u2013 ", format(ref_date, "%d/%m/%Y"))
 
   tbl <- df |>
-    dplyr::select(player, acwr_dist, acwr_hsr, acwr_pl) |>
+    dplyr::select(player, acwr_dist, trend_dist, acwr_hsr, trend_hsr, acwr_pl, trend_pl) |>
     gt::gt() |>
     gt::tab_header(
       title    = paste0("ACWR \u00b7 ", date_label),
       subtitle = gt::md(
-        "**Azul** < 0.8 \u2014 subcarga &nbsp;|&nbsp; **Verde** 0.8\u20131.3 \u2014 \u00f3ptimo &nbsp;|&nbsp; **Naranja** 1.3\u20131.5 \u2014 precauci\u00f3n &nbsp;|&nbsp; **Rojo** > 1.5 \u2014 riesgo"
+        "**Azul** < 0.8 \u2014 subcarga &nbsp;|&nbsp; **Verde** 0.8\u20131.3 \u2014 \u00f3ptimo &nbsp;|&nbsp; **Naranja** 1.3\u20131.5 \u2014 precauci\u00f3n &nbsp;|&nbsp; **Rojo** > 1.5 \u2014 riesgo &nbsp;|&nbsp; Tendencia vs. semana anterior"
       )
     ) |>
     gt::cols_label(
-      player    = "Jugador",
-      acwr_dist = "Dist. Total",
-      acwr_hsr  = "HSR",
-      acwr_pl   = "Player Load"
+      player     = "Jugador",
+      acwr_dist  = "ACWR",  trend_dist = "\u0394",
+      acwr_hsr   = "ACWR",  trend_hsr  = "\u0394",
+      acwr_pl    = "ACWR",  trend_pl   = "\u0394"
     ) |>
-    gt::tab_spanner(
-      label   = "ACWR \u2014 Carga Aguda \u00f7 Carga Cr\u00f3nica (prom. semanal 28 d\u00edas)",
-      columns = c(acwr_dist, acwr_hsr, acwr_pl)
-    ) |>
+    gt::tab_spanner(label = "Dist. Total",  columns = c(acwr_dist, trend_dist)) |>
+    gt::tab_spanner(label = "HSR",          columns = c(acwr_hsr,  trend_hsr))  |>
+    gt::tab_spanner(label = "Player Load",  columns = c(acwr_pl,   trend_pl))   |>
     gt::fmt_number(columns = c(acwr_dist, acwr_hsr, acwr_pl), decimals = 2) |>
     gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
     gt::tab_style(
       style     = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(columns = player)
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(color = "#9ca3af", size = gt::px(11)),
+      locations = gt::cells_body(columns = c(trend_dist, trend_hsr, trend_pl))
     ) |>
     gt::tab_options(
       table.font.size                 = gt::px(13),
@@ -1014,7 +1065,7 @@ build_acwr_table <- function(datos) {
       row.striping.background_color   = "#f8f9fa",
       table.border.top.color          = "#0B1B4A",
       table.border.top.width          = gt::px(3),
-      table.width                     = gt::pct(65),
+      table.width                     = gt::pct(75),
       data_row.padding                = gt::px(5)
     ) |>
     gt::tab_style(
@@ -1026,7 +1077,7 @@ build_acwr_table <- function(datos) {
       locations = gt::cells_column_spanners(spanners = tidyselect::everything())
     )
 
-  # Zone coloring per column — batch by zone (4 calls × 3 cols = 12 total)
+  # Zone fill on ACWR value columns
   zone_map <- list(
     list(color = "#AED6F1", test = function(x) !is.na(x) & x < 0.8),
     list(color = "#D5F5E3", test = function(x) !is.na(x) & x >= 0.8 & x <= 1.3),
@@ -1042,6 +1093,24 @@ build_acwr_table <- function(datos) {
           style     = gt::cell_fill(color = z$color),
           locations = gt::cells_body(columns = dplyr::all_of(col), rows = rows))
     }
+  }
+
+  # Trend text coloring: context-aware (rising in danger zone = red, etc.)
+  trend_cols  <- c(trend_dist = "acwr_dist", trend_hsr = "acwr_hsr", trend_pl = "acwr_pl")
+  delta_cols  <- c(trend_dist = "delta_dist", trend_hsr = "delta_hsr", trend_pl = "delta_pl")
+  for (tcol in names(trend_cols)) {
+    acwr  <- df[[trend_cols[[tcol]]]]
+    delta <- df[[delta_cols[[tcol]]]]
+    red_rows   <- which(!is.na(delta) & ((acwr > 1.3 & delta > 0) | (acwr < 0.8 & delta < 0)))
+    green_rows <- which(!is.na(delta) & ((acwr > 1.3 & delta < 0) | (acwr < 0.8 & delta > 0)))
+    if (length(red_rows) > 0)
+      tbl <- gt::tab_style(tbl,
+        style     = gt::cell_text(color = "#C1121F", weight = "bold", size = gt::px(11)),
+        locations = gt::cells_body(columns = dplyr::all_of(tcol), rows = red_rows))
+    if (length(green_rows) > 0)
+      tbl <- gt::tab_style(tbl,
+        style     = gt::cell_text(color = "#166534", weight = "bold", size = gt::px(11)),
+        locations = gt::cells_body(columns = dplyr::all_of(tcol), rows = green_rows))
   }
 
   tbl
