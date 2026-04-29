@@ -1112,7 +1112,7 @@ build_md_relative_plot <- function(datos, metric = "distance_m") {
     ggplot2::scale_fill_manual(values = c("FALSE" = "#0B1B4A", "TRUE" = "#C1121F"), guide = "none") +
     ggplot2::scale_y_continuous(labels = scales::comma, expand = ggplot2::expansion(mult = c(0, 0.08))) +
     ggplot2::labs(
-      title    = paste0("Perfil por D\u00eda Relativo al Partido \u00b7 ", metric_name),
+      title    = paste0("MD comparado con otros días del Microciclo \u00b7 ", metric_name),
       subtitle = "Promedio del equipo por tipo de sesi\u00f3n \u00b7 Rojo = d\u00eda de partido (MD)",
       x = NULL, y = metric_name
     ) +
