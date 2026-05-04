@@ -12,6 +12,7 @@ library(gt)
 library(httr)
 
 source("cargas7.R")
+if (file.exists("secrets.R")) source("secrets.R")
 
 # ----------------------------
 # Helpers
@@ -1632,7 +1633,7 @@ shinyApp(ui, server)
 
 # rsconnect::deployApp(
 #   appDir         = ".",
-#   appFiles       = c("app.R", "cargas7.R", "data/Sessions_micro01.xlsx"),
+#   appFiles       = c("app.R", "cargas7.R", "secrets.R", "data/Sessions_micro01.xlsx"),
 #   appName        = "cargas_fisicas_7",
 #   account        = "mateo-rodriguez-23",
 #   server         = "shinyapps.io",
