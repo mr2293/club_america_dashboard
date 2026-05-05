@@ -1273,22 +1273,31 @@ build_narrative_prompt <- function(datos) {
 }
 
 build_nl_prompt <- function(datos, question) {
-  ref_date  <- max(datos$date, na.rm = TRUE)
-  min_date  <- min(datos$date, na.rm = TRUE)
-  start_30d <- ref_date - lubridate::days(29)
+  ref_date   <- max(datos$date, na.rm = TRUE)
+  min_date   <- min(datos$date, na.rm = TRUE)
+  start_30d  <- ref_date - lubridate::days(29)
+  start_7d   <- ref_date - lubridate::days(6)
+  start_prev <- ref_date - lubridate::days(13)  # previous 7-day window
 
-  summary_7d <- datos |>
-    dplyr::filter(date >= start_30d, date <= ref_date) |>
-    dplyr::group_by(player) |>
-    dplyr::summarise(
-      dist  = sum(distance_m,        na.rm = TRUE),
-      hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
-      spr_m = sum(distance_abs,      na.rm = TRUE),
-      n_spr = sum(sprints_abs_count, na.rm = TRUE),
-      pl    = sum(player_load,       na.rm = TRUE),
-      vmax  = max(max_speed,         na.rm = TRUE),
-      .groups = "drop"
-    )
+  # Helper: aggregate by player over a window
+  agg_window <- function(start, end) {
+    datos |>
+      dplyr::filter(date >= start, date <= end) |>
+      dplyr::group_by(player) |>
+      dplyr::summarise(
+        dist  = sum(distance_m,        na.rm = TRUE),
+        hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
+        spr_m = sum(distance_abs,      na.rm = TRUE),
+        n_spr = sum(sprints_abs_count, na.rm = TRUE),
+        pl    = sum(player_load,       na.rm = TRUE),
+        vmax  = max(max_speed,         na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+
+  summary_30d   <- agg_window(start_30d,  ref_date)
+  summary_7d    <- agg_window(start_7d,   ref_date)
+  summary_prev  <- agg_window(start_prev, ref_date - lubridate::days(7))
 
   # Helper: build a numbered ranking for one metric
   rank_block <- function(df, col, title, fmt) {
@@ -1302,25 +1311,52 @@ build_nl_prompt <- function(datos, question) {
   n <- function(x) as.character(round(x, 0))
   v <- function(x) paste0(round(x, 1), " km/h")
 
+  make_rankings <- function(df, label) {
+    paste0(
+      "=== ", label, " ===\n",
+      paste(
+        rank_block(df, "dist",  "DISTANCIA TOTAL",        m),
+        rank_block(df, "hsr",   "HSR",                    m),
+        rank_block(df, "spr_m", "SPRINT (distancia)",     m),
+        rank_block(df, "n_spr", "N\u00daMERO DE SPRINTS", n),
+        rank_block(df, "pl",    "PLAYER LOAD",            n),
+        rank_block(df, "vmax",  "VELOCIDAD M\u00c1XIMA",  v),
+        sep = "\n\n"
+      )
+    )
+  }
+
   rankings <- paste(
-    rank_block(summary_7d, "dist",  "DISTANCIA TOTAL",         m),
-    rank_block(summary_7d, "hsr",   "HSR (alta intensidad)",   m),
-    rank_block(summary_7d, "spr_m", "SPRINT (distancia)",      m),
-    rank_block(summary_7d, "n_spr", "N\u00daMERO DE SPRINTS",  n),
-    rank_block(summary_7d, "pl",    "PLAYER LOAD",             n),
-    rank_block(summary_7d, "vmax",  "VELOCIDAD M\u00c1XIMA",   v),
+    make_rankings(summary_7d,   paste0("\u00daltimos 7 d\u00edas (",
+                                       format(start_7d, "%d/%m"), "\u2013",
+                                       format(ref_date, "%d/%m/%Y"), ")")),
+    make_rankings(summary_prev, paste0("Semana anterior (",
+                                       format(start_prev, "%d/%m"), "\u2013",
+                                       format(ref_date - lubridate::days(7), "%d/%m/%Y"), ")")),
+    make_rankings(summary_30d,  paste0("\u00daltimos 30 d\u00edas (",
+                                       format(start_30d, "%d/%m"), "\u2013",
+                                       format(ref_date, "%d/%m/%Y"), ")")),
     sep = "\n\n"
   )
 
-  # Daily breakdown for date-specific questions
+  # Daily breakdown — grouped to ONE row per player per date (avoids multi-session confusion)
   daily <- datos |>
     dplyr::filter(date >= start_30d, date <= ref_date) |>
+    dplyr::group_by(date, player, match_day) |>
+    dplyr::summarise(
+      dist  = sum(distance_m,        na.rm = TRUE),
+      hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
+      spr_m = sum(distance_abs,      na.rm = TRUE),
+      n_spr = sum(sprints_abs_count, na.rm = TRUE),
+      pl    = sum(player_load,       na.rm = TRUE),
+      vmax  = max(max_speed,         na.rm = TRUE),
+      .groups = "drop"
+    ) |>
     dplyr::arrange(date, player) |>
     dplyr::mutate(
       row = sprintf("%s | %-22s | Dist: %5.0f m | HSR: %4.0f m | Spr: %4.0f m | NºSpr: %2.0f | PL: %5.0f | Vmax: %.1f km/h | %s",
                     format(date, "%d/%m/%Y"), player,
-                    distance_m, HSR_abs_dist, distance_abs,
-                    sprints_abs_count, player_load, max_speed, match_day)
+                    dist, hsr, spr_m, n_spr, pl, vmax, match_day)
     ) |>
     dplyr::pull(row)
 
@@ -1335,16 +1371,16 @@ build_nl_prompt <- function(datos, question) {
 
   paste0(
     "Eres un analista de ciencias del deporte del Club Am\u00e9rica. ",
-    "Responde la siguiente pregunta usando los datos que se muestran abajo. ",
-    "Los rankings de 30 d\u00edas ya est\u00e1n calculados y ordenados — \u00fasalos para preguntas generales. ",
-    "Para preguntas sobre fechas espec\u00edficas, usa el detalle diario. ",
-    "S\u00e9 directo y menciona valores num\u00e9ricos. Responde en espa\u00f1ol.\n\n",
+    "Responde usando EXCLUSIVAMENTE los totales pre-calculados que aparecen abajo. ",
+    "NUNCA sumes valores del detalle diario para obtener totales — usa los rankings directamente. ",
+    "El detalle diario es solo para identificar qu\u00e9 pas\u00f3 en una fecha espec\u00edfica. ",
+    "S\u00e9 directo y menciona valores num\u00e9ricos exactos. Responde en espa\u00f1ol.\n\n",
     "DATOS DISPONIBLES: ", format(min_date, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
     "PARTIDOS RECIENTES (MD): ",
     if (nchar(md_dates_str) == 0) "ninguno" else md_dates_str, "\n\n",
-    "RANKINGS \u00daltimos 30 d\u00edas (ordenados de mayor a menor):\n\n",
+    "TOTALES PRE-CALCULADOS POR PER\u00cdODO (usa estos para responder totales y rankings):\n\n",
     rankings, "\n\n",
-    "DETALLE DIARIO (fecha | jugador | m\u00e9tricas | tipo de sesi\u00f3n):\n",
+    "DETALLE DIARIO — 1 fila por jugador por d\u00eda (solo para preguntas sobre fechas espec\u00edficas):\n",
     paste(daily, collapse = "\n"), "\n\n",
     "PREGUNTA: ", question
   )
