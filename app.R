@@ -1312,6 +1312,18 @@ build_nl_prompt <- function(datos, question) {
     sep = "\n\n"
   )
 
+  # Daily breakdown for date-specific questions
+  daily <- datos |>
+    dplyr::filter(date >= start_30d, date <= ref_date) |>
+    dplyr::arrange(date, player) |>
+    dplyr::mutate(
+      row = sprintf("%s | %-22s | Dist: %5.0f m | HSR: %4.0f m | Spr: %4.0f m | NºSpr: %2.0f | PL: %5.0f | Vmax: %.1f km/h | %s",
+                    format(date, "%d/%m/%Y"), player,
+                    distance_m, HSR_abs_dist, distance_abs,
+                    sprints_abs_count, player_load, max_speed, match_day)
+    ) |>
+    dplyr::pull(row)
+
   md_dates_str <- datos |>
     dplyr::filter(match_day == "MD") |>
     dplyr::distinct(date) |>
@@ -1323,14 +1335,17 @@ build_nl_prompt <- function(datos, question) {
 
   paste0(
     "Eres un analista de ciencias del deporte del Club Am\u00e9rica. ",
-    "Responde la siguiente pregunta usando \u00fanicamente los datos pre-ordenados que se muestran abajo. ",
-    "Los rankings ya est\u00e1n calculados y ordenados correctamente de mayor a menor — \u00fasalos directamente. ",
+    "Responde la siguiente pregunta usando los datos que se muestran abajo. ",
+    "Los rankings de 30 d\u00edas ya est\u00e1n calculados y ordenados — \u00fasalos para preguntas generales. ",
+    "Para preguntas sobre fechas espec\u00edficas, usa el detalle diario. ",
     "S\u00e9 directo y menciona valores num\u00e9ricos. Responde en espa\u00f1ol.\n\n",
     "DATOS DISPONIBLES: ", format(min_date, "%d/%m/%Y"), " a ", format(ref_date, "%d/%m/%Y"), "\n",
     "PARTIDOS RECIENTES (MD): ",
     if (nchar(md_dates_str) == 0) "ninguno" else md_dates_str, "\n\n",
     "RANKINGS \u00daltimos 30 d\u00edas (ordenados de mayor a menor):\n\n",
     rankings, "\n\n",
+    "DETALLE DIARIO (fecha | jugador | m\u00e9tricas | tipo de sesi\u00f3n):\n",
+    paste(daily, collapse = "\n"), "\n\n",
     "PREGUNTA: ", question
   )
 }
@@ -1622,7 +1637,7 @@ server <- function(input, output, session) {
     req(nchar(trimws(input$nl_query)) > 0)
     withProgress(message = "Consultando IA\u2026", value = 0.6, {
       prompt <- build_nl_prompt(datos, input$nl_query)
-      result <- call_claude_api(prompt, max_tokens = 500)
+      result <- call_claude_api(prompt, max_tokens = 700)
       nl_answer_val(result)
     })
   })
