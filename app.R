@@ -86,10 +86,10 @@ plot_hsr_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
     dplyr::group_by(player) |>
     dplyr::summarise(
       HSR_abs_dist = sum(HSR_abs_dist, na.rm = TRUE),
-      distance_abs = sum(distance_abs, na.rm = TRUE),
+      sprint_dist = sum(sprint_dist, na.rm = TRUE),
       .groups = "drop"
     ) |>
-    dplyr::mutate(total_dist = HSR_abs_dist + distance_abs)
+    dplyr::mutate(total_dist = HSR_abs_dist + sprint_dist)
 
   player_levels <- df_7d |>
     dplyr::arrange(dplyr::desc(HSR_abs_dist)) |>
@@ -119,24 +119,24 @@ plot_hsr_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
 
 plot_sprint_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
 
-  sprint_labels <- get_4w_weekly_avg(datos_full, "distance_abs",
+  sprint_labels <- get_4w_weekly_avg(datos_full, "sprint_dist",
                                       ref_date = max(datos_win$date, na.rm = TRUE))
 
   df_7d <- datos_win |>
     dplyr::group_by(player) |>
     dplyr::summarise(
       HSR_abs_dist = sum(HSR_abs_dist, na.rm = TRUE),
-      distance_abs = sum(distance_abs, na.rm = TRUE),
+      sprint_dist = sum(sprint_dist, na.rm = TRUE),
       .groups = "drop"
     ) |>
-    dplyr::mutate(total_dist = HSR_abs_dist + distance_abs)
+    dplyr::mutate(total_dist = HSR_abs_dist + sprint_dist)
 
   player_levels <- df_7d |>
-    dplyr::arrange(dplyr::desc(distance_abs)) |>
+    dplyr::arrange(dplyr::desc(sprint_dist)) |>
     dplyr::pull(player)
 
   df_plot <- df_7d |>
-    dplyr::select(player, value = distance_abs) |>
+    dplyr::select(player, value = sprint_dist) |>
     dplyr::left_join(sprint_labels, by = "player") |>
     dplyr::mutate(player = factor(player, levels = rev(player_levels)))
 
@@ -251,20 +251,11 @@ plot_pct_hist_speed <- function(datos_win) {
   df_speed7 <- datos_win |>
     group_by(player) |>
     summarise(
-      avg_speed_7d = mean(max_speed,    na.rm = TRUE),
-      max_speed_7d = max(max_speed,     na.rm = TRUE),
-      vel_max_hist = max(vel_max_hist,  na.rm = TRUE),
+      avg_speed_7d = mean(max_speed,        na.rm = TRUE),
+      max_speed_7d = max(max_speed,         na.rm = TRUE),
+      pct_hist_7d  = max(pct_max_velocity,  na.rm = TRUE),
+      avg_speed_pct_hist = mean(pct_max_velocity, na.rm = TRUE),
       .groups = "drop"
-    ) |>
-    mutate(
-      pct_hist_7d = if_else(
-        is.finite(vel_max_hist) & vel_max_hist > 0,
-        100 * (max_speed_7d / vel_max_hist), NA_real_
-      ),
-      avg_speed_pct_hist = if_else(
-        is.finite(vel_max_hist) & vel_max_hist > 0,
-        100 * (avg_speed_7d / vel_max_hist), NA_real_
-      )
     ) |>
     arrange(desc(pct_hist_7d)) |>
     mutate(player = factor(player, levels = rev(player)))
@@ -299,14 +290,14 @@ plot_pct_hist_speed <- function(datos_win) {
     theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 30))
 }
 
-plot_sprints_abs_count <- function(datos_win, datos_full = datos) {
+plot_sprint_efforts_count <- function(datos_win, datos_full = datos) {
 
-  avg_labels <- get_4w_weekly_avg(datos_full, "sprints_abs_count",
+  avg_labels <- get_4w_weekly_avg(datos_full, "sprint_efforts_count",
                                    ref_date = max(datos_win$date, na.rm = TRUE))
 
   df_7d <- datos_win |>
     dplyr::group_by(player) |>
-    dplyr::summarise(value = sum(sprints_abs_count, na.rm = TRUE), .groups = "drop")
+    dplyr::summarise(value = sum(sprint_efforts_count, na.rm = TRUE), .groups = "drop")
 
   player_levels <- df_7d |>
     dplyr::arrange(dplyr::desc(value)) |>
@@ -333,14 +324,14 @@ plot_sprints_abs_count <- function(datos_win, datos_full = datos) {
     base_theme()
 }
 
-plot_sprints_rel_count <- function(datos_win, datos_full = datos) {
+plot_HSR_rel_dist <- function(datos_win, datos_full = datos) {
 
-  avg_labels <- get_4w_weekly_avg(datos_full, "sprints_rel_count",
+  avg_labels <- get_4w_weekly_avg(datos_full, "HSR_rel_dist",
                                    ref_date = max(datos_win$date, na.rm = TRUE))
 
   df_7d <- datos_win |>
     dplyr::group_by(player) |>
-    dplyr::summarise(value = sum(sprints_rel_count, na.rm = TRUE), .groups = "drop")
+    dplyr::summarise(value = sum(HSR_rel_dist, na.rm = TRUE), .groups = "drop")
 
   player_levels <- df_7d |>
     dplyr::arrange(dplyr::desc(value)) |>
@@ -360,9 +351,9 @@ plot_sprints_rel_count <- function(datos_win, datos_full = datos) {
     ggplot2::coord_flip() +
     ggplot2::scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
     ggplot2::labs(
-      title    = paste0("Sprints Relativos >85% \u00b7 ", period_label(datos_win)),
+      title    = paste0("HSR Relativa \u00b7 ", period_label(datos_win)),
       subtitle = "Punto amarillo: Promedio semanal (promedio de 4 semanas, \u00faltimos 28 d\u00edas)",
-      x = NULL, y = "N\u00famero de Sprints"
+      x = NULL, y = "Distancia (m)"
     ) +
     base_theme()
 }
@@ -392,8 +383,8 @@ build_resumen_table <- function(datos_win) {
     dplyr::group_by(player) |>
     dplyr::summarise(
       tot_hsr    = sum(HSR_abs_dist,      na.rm = TRUE),
-      tot_sprint = sum(distance_abs,      na.rm = TRUE),
-      tot_sabs   = sum(sprints_abs_count, na.rm = TRUE),
+      tot_sprint = sum(sprint_dist,      na.rm = TRUE),
+      tot_sabs   = sum(sprint_efforts_count, na.rm = TRUE),
       .groups = "drop"
     )
 
@@ -417,7 +408,7 @@ build_resumen_table <- function(datos_win) {
   )
 
   daily_long <- df_win |>
-    dplyr::select(player, date, HSR_abs_dist, distance_abs, sprints_abs_count) |>
+    dplyr::select(player, date, HSR_abs_dist, sprint_dist, sprint_efforts_count) |>
     dplyr::left_join(date_index, by = "date") |>
     dplyr::filter(!is.na(d_idx))
 
@@ -427,13 +418,13 @@ build_resumen_table <- function(datos_win) {
                        names_glue = "{d_idx}_hsr", values_fn = sum)
 
   daily_sprint <- daily_long |>
-    dplyr::select(player, d_idx, distance_abs) |>
-    tidyr::pivot_wider(names_from = d_idx, values_from = distance_abs,
+    dplyr::select(player, d_idx, sprint_dist) |>
+    tidyr::pivot_wider(names_from = d_idx, values_from = sprint_dist,
                        names_glue = "{d_idx}_sprint", values_fn = sum)
 
   daily_sabs <- daily_long |>
-    dplyr::select(player, d_idx, sprints_abs_count) |>
-    tidyr::pivot_wider(names_from = d_idx, values_from = sprints_abs_count,
+    dplyr::select(player, d_idx, sprint_efforts_count) |>
+    tidyr::pivot_wider(names_from = d_idx, values_from = sprint_efforts_count,
                        names_glue = "{d_idx}_sabs", values_fn = sum)
 
   ordered_cols <- unlist(lapply(seq_along(all_dates), function(i)
@@ -590,20 +581,15 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
     dplyr::group_by(player) |>
     dplyr::summarise(
       hsr      = sum(HSR_abs_dist,      na.rm = TRUE),
-      sprint   = sum(distance_abs,      na.rm = TRUE),
+      sprint   = sum(sprint_dist,      na.rm = TRUE),
       dist     = sum(distance_m,        na.rm = TRUE),
       acc_decc = sum(acc_plus_decc,     na.rm = TRUE),
       pl       = sum(player_load,       na.rm = TRUE),
-      sp_abs   = sum(sprints_abs_count, na.rm = TRUE),
-      sp_rel   = sum(sprints_rel_count, na.rm = TRUE),
+      sp_abs   = sum(sprint_efforts_count, na.rm = TRUE),
+      sp_rel   = sum(HSR_rel_dist, na.rm = TRUE),
       vel_max  = max(max_speed,         na.rm = TRUE),
-      vel_hist = max(vel_max_hist,      na.rm = TRUE),
+      pct_vel  = max(pct_max_velocity, na.rm = TRUE),
       .groups = "drop"
-    ) |>
-    dplyr::mutate(
-      pct_vel = dplyr::if_else(
-        is.finite(vel_hist) & vel_hist > 0, 100 * vel_max / vel_hist, NA_real_
-      )
     )
 
   player_row <- dplyr::filter(team_sums, player == player_name)
@@ -626,9 +612,9 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
 
   # Cumulative metrics: reuse get_4w_weekly_avg (weekly avg over 4 rolling weeks)
   col_map <- c(
-    hsr = "HSR_abs_dist", sprint = "distance_abs", dist = "distance_m",
+    hsr = "HSR_abs_dist", sprint = "sprint_dist", dist = "distance_m",
     acc_decc = "acc_plus_decc", pl = "player_load",
-    sp_abs = "sprints_abs_count", sp_rel = "sprints_rel_count"
+    sp_abs = "sprint_efforts_count", sp_rel = "HSR_rel_dist"
   )
   mes_cum <- sapply(names(col_map), function(k) {
     df  <- get_4w_weekly_avg(datos_full, col_map[[k]], ref_date = ref_date)
@@ -640,13 +626,8 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
   speed_28d <- datos_full |>
     dplyr::filter(player == player_name, date >= start_28d, date <= ref_date) |>
     dplyr::summarise(
-      vel_max  = mean(max_speed,   na.rm = TRUE),
-      vel_hist = max(vel_max_hist, na.rm = TRUE)
-    ) |>
-    dplyr::mutate(
-      pct_vel = dplyr::if_else(
-        is.finite(vel_hist) & vel_hist > 0, 100 * vel_max / vel_hist, NA_real_
-      )
+      vel_max = mean(max_speed,        na.rm = TRUE),
+      pct_vel = mean(pct_max_velocity, na.rm = TRUE)
     )
 
   mes_vals <- c(
@@ -668,7 +649,7 @@ build_player_profile <- function(datos_win, player_name, datos_full = datos) {
     metrica     = c(
       "HSR (m)", "Sprint (m)", "Distancia Total (m)",
       "ACC + DECC", "Player Load",
-      "Sprints Abs. >24 km/h", "Sprints Rel. >85%",
+      "Sprints Abs. >24 km/h", "HSR Relativa (m)",
       "Vel. M\u00e1xima (km/h)", "% Vel. Hist\u00f3rica"
     ),
     Jugador     = player_vals,
@@ -790,12 +771,12 @@ build_md_table <- function(datos, selected_date = NULL) {
   }
 
   # Columns that always exist in datos
-  core_sum_cols <- c("distance_m", "HSR_abs_dist", "distance_abs",
-                     "sprints_abs_count", "acc_plus_decc", "player_load")
+  core_sum_cols <- c("distance_m", "HSR_abs_dist", "sprint_dist",
+                     "sprint_efforts_count", "acc_plus_decc", "player_load")
   core_max_cols <- "max_speed"
 
   # Optional columns — only use if present
-  opt_sum_cols  <- intersect("HMLD_m",  names(all_md))
+  opt_sum_cols  <- intersect("hmld_m",  names(all_md))
   opt_num_cols  <- intersect("min",     names(all_md))   # minutes played
   opt_meta_cols <- intersect(c("group", "pos"), names(all_md))
 
@@ -835,11 +816,11 @@ build_md_table <- function(datos, selected_date = NULL) {
   metric_cfg <- list(
     list(col = "distance_m",        avg = "avg_distance_m"),
     list(col = "HSR_abs_dist",      avg = "avg_HSR_abs_dist"),
-    list(col = "distance_abs",      avg = "avg_distance_abs"),
-    list(col = "sprints_abs_count", avg = "avg_sprints_abs_count"),
+    list(col = "sprint_dist",      avg = "avg_sprint_dist"),
+    list(col = "sprint_efforts_count", avg = "avg_sprint_efforts_count"),
     list(col = "acc_plus_decc",     avg = "avg_acc_plus_decc"),
     list(col = "player_load",       avg = "avg_player_load"),
-    list(col = "HMLD_m",            avg = "avg_HMLD_m"),
+    list(col = "hmld_m",            avg = "avg_hmld_m"),
     list(col = "max_speed",         avg = "avg_max_speed")
   )
   metric_cfg <- Filter(
@@ -858,11 +839,11 @@ build_md_table <- function(datos, selected_date = NULL) {
     min               = "Min.",
     distance_m        = "Dist. Total (m)",
     HSR_abs_dist      = "HSR (m)",
-    distance_abs      = "Sprint (m)",
-    sprints_abs_count = "N\u00ba Sprints",
+    sprint_dist      = "Sprint (m)",
+    sprint_efforts_count = "N\u00ba Sprints",
     acc_plus_decc     = "ACC+DECC",
     player_load       = "Player Load",
-    HMLD_m            = "HMLD (m)",
+    hmld_m            = "HMLD (m)",
     max_speed         = "Vel. M\u00e1x. (km/h)"
   )
   col_labels_filtered <- all_col_labels[
@@ -880,11 +861,11 @@ build_md_table <- function(datos, selected_date = NULL) {
     ) |>
     gt::cols_label(.list = col_labels_filtered) |>
     gt::fmt_number(
-      columns  = dplyr::any_of(c("distance_m", "HSR_abs_dist", "distance_abs", "HMLD_m")),
+      columns  = dplyr::any_of(c("distance_m", "HSR_abs_dist", "sprint_dist", "hmld_m")),
       decimals = 0, use_seps = FALSE
     ) |>
     gt::fmt_number(
-      columns  = dplyr::any_of(c("sprints_abs_count", "acc_plus_decc", "player_load")),
+      columns  = dplyr::any_of(c("sprint_efforts_count", "acc_plus_decc", "player_load")),
       decimals = 0, use_seps = FALSE
     ) |>
     gt::fmt_number(
@@ -1124,10 +1105,10 @@ build_md_relative_plot <- function(datos, metric = "distance_m") {
   metric_labels <- c(
     distance_m        = "Distancia Total (m)",
     HSR_abs_dist      = "HSR (m)",
-    distance_abs      = "Sprint (m)",
+    sprint_dist      = "Sprint (m)",
     acc_plus_decc     = "ACC + DECC",
     player_load       = "Player Load",
-    sprints_abs_count = "Sprints >24 km/h"
+    sprint_efforts_count = "Sprints >24 km/h"
   )
 
   # Map match_day labels directly — no proximity calculation needed
@@ -1287,8 +1268,8 @@ build_nl_prompt <- function(datos, question) {
       dplyr::summarise(
         dist  = sum(distance_m,        na.rm = TRUE),
         hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
-        spr_m = sum(distance_abs,      na.rm = TRUE),
-        n_spr = sum(sprints_abs_count, na.rm = TRUE),
+        spr_m = sum(sprint_dist,      na.rm = TRUE),
+        n_spr = sum(sprint_efforts_count, na.rm = TRUE),
         pl    = sum(player_load,       na.rm = TRUE),
         vmax  = max(max_speed,         na.rm = TRUE),
         .groups = "drop"
@@ -1346,8 +1327,8 @@ build_nl_prompt <- function(datos, question) {
     dplyr::summarise(
       dist  = sum(distance_m,        na.rm = TRUE),
       hsr   = sum(HSR_abs_dist,      na.rm = TRUE),
-      spr_m = sum(distance_abs,      na.rm = TRUE),
-      n_spr = sum(sprints_abs_count, na.rm = TRUE),
+      spr_m = sum(sprint_dist,      na.rm = TRUE),
+      n_spr = sum(sprint_efforts_count, na.rm = TRUE),
       pl    = sum(player_load,       na.rm = TRUE),
       vmax  = max(max_speed,         na.rm = TRUE),
       .groups = "drop"
@@ -1443,7 +1424,7 @@ ui <- fluidPage(
     tabPanel("Player Load",           plotOutput("plot_pl",           height = "700px")),
     tabPanel("% Vel. M\u00e1x. Hist", plotOutput("plot_pct_speed",    height = "700px")),
     tabPanel("Sprints Abs. >24 km/h", plotOutput("plot_sprints_abs",  height = "700px")),
-    tabPanel("Sprints Rel. >85%",     plotOutput("plot_sprints_rel",  height = "700px")),
+    tabPanel("HSR Relativa",           plotOutput("plot_sprints_rel",  height = "700px")),
     tabPanel("Partido (MD)",
       fluidRow(
         column(3,
@@ -1501,10 +1482,10 @@ ui <- fluidPage(
               choices  = c(
                 "Distancia Total"  = "distance_m",
                 "HSR"              = "HSR_abs_dist",
-                "Sprint"           = "distance_abs",
+                "Sprint"           = "sprint_dist",
                 "ACC + DECC"       = "acc_plus_decc",
                 "Player Load"      = "player_load",
-                "Sprints >24 km/h" = "sprints_abs_count"
+                "Sprints >24 km/h" = "sprint_efforts_count"
               ),
               selected = "distance_m"
             )
@@ -1622,12 +1603,12 @@ server <- function(input, output, session) {
 
   output$plot_sprints_abs <- renderPlot({
     req(datos_win())
-    plot_sprints_abs_count(datos_win(), datos)
+    plot_sprint_efforts_count(datos_win(), datos)
   })
 
   output$plot_sprints_rel <- renderPlot({
     req(datos_win())
-    plot_sprints_rel_count(datos_win(), datos)
+    plot_HSR_rel_dist(datos_win(), datos)
   })
 
   output$tabla_resumen <- gt::render_gt({
