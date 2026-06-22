@@ -53,13 +53,16 @@ vel_max_lookup <- tibble::tribble(
   "Sebastián Cáceres",         35.00,
   "Víctor Dávila",             34.00,
   "Raphael Veiga",             32.00,
-  "Thiago Espinosa",           34.00
+  "Thiago Espinosa",           34.00,
+  "Franco Rossano",            33.00,
+  "Emilio Lara",               33.00
 )
 
 selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez", "Brian Rodríguez",           
                    "Cristian Borja", "Dagoberto Espinoza", "Erick Sánchez", "Henry Martín", "Isaías Violante",           
                    "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez", "Patricio Salas", 
-                   "Ramón Juárez","Sebastián Cáceres", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa")
+                   "Ramón Juárez","Sebastián Cáceres", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa",
+                   "Franco Rossano", "Emilio Lara")
 
 datos <- datos |>
   left_join(vel_max_lookup, by = "player") |>
@@ -79,7 +82,7 @@ last7 <- datos |>
   summarise(
     HSR_abs_dist_7d     = sum(HSR_abs_dist,     na.rm = TRUE),
     sprint_dist_7d     = sum(sprint_dist,     na.rm = TRUE),
-    sprint_efforts_count_7d = sum(sprint_efforts_count, na.rm = TRUE),
+    sprint_count_95pct_7d = sum(sprint_count_95pct, na.rm = TRUE),
     .groups = "drop"
   )
 
