@@ -100,14 +100,22 @@ plot_hsr_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
     dplyr::left_join(hsr_labels, by = "player") |>
     dplyr::mutate(player = factor(player, levels = rev(player_levels)))
 
+  team_avg_hsr <- mean(df_plot$value, na.rm = TRUE)
+
   ggplot2::ggplot(df_plot, ggplot2::aes(x = player, y = value)) +
     ggplot2::geom_col(fill = "#0B1B4A", color = "white", linewidth = 0.2) +
+    ggplot2::geom_hline(yintercept = team_avg_hsr, color = "#C1121F", linetype = "dashed", linewidth = 1.2) +
     ggplot2::geom_point(ggplot2::aes(y = avg_4w), color = "#FFD60A", size = 3.5) +
     ggplot2::geom_text(
       ggplot2::aes(label = scales::comma(round(value, 0))),
       color = "white", size = 4, fontface = "bold", hjust = 1.05
     ) +
-    ggplot2::coord_flip() +
+    ggplot2::annotate(
+      "text", y = team_avg_hsr, x = 1,
+      label    = paste0("Promedio equipo: ", scales::comma(round(team_avg_hsr, 0)), " m"),
+      color    = "#C1121F", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
+    ) +
+    ggplot2::coord_flip(clip = "off") +
     ggplot2::scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
     ggplot2::labs(
       title    = paste0("Distancia en HSR \u00b7 ", period_label(datos_win)),
@@ -140,14 +148,22 @@ plot_sprint_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
     dplyr::left_join(sprint_labels, by = "player") |>
     dplyr::mutate(player = factor(player, levels = rev(player_levels)))
 
+  team_avg_sprint <- mean(df_plot$value, na.rm = TRUE)
+
   ggplot2::ggplot(df_plot, ggplot2::aes(x = player, y = value)) +
     ggplot2::geom_col(fill = "#C1121F", color = "white", linewidth = 0.2) +
+    ggplot2::geom_hline(yintercept = team_avg_sprint, color = "#0B1B4A", linetype = "dashed", linewidth = 1.2) +
     ggplot2::geom_point(ggplot2::aes(y = avg_4w), color = "#FFD60A", size = 3.5) +
     ggplot2::geom_text(
       ggplot2::aes(label = scales::comma(round(value, 0))),
       color = "white", size = 4, fontface = "bold", hjust = 1.05
     ) +
-    ggplot2::coord_flip() +
+    ggplot2::annotate(
+      "text", y = team_avg_sprint, x = 1,
+      label    = paste0("Promedio equipo: ", scales::comma(round(team_avg_sprint, 0)), " m"),
+      color    = "#0B1B4A", fontface = "bold", size = 4.5, hjust = -0.1, vjust = 1.5
+    ) +
+    ggplot2::coord_flip(clip = "off") +
     ggplot2::scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
     ggplot2::labs(
       title    = paste0("Distancia en Sprint \u00b7 ", period_label(datos_win)),
