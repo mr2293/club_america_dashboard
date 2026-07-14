@@ -91,6 +91,12 @@ plot_hsr_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
     ) |>
     dplyr::mutate(total_dist = HSR_abs_dist + sprint_dist)
 
+  # Temporary: Cristian Borja missing GPS session — remove after 2026-07-17
+  if (Sys.Date() < as.Date("2026-07-17")) {
+    df_7d <- df_7d |>
+      dplyr::mutate(HSR_abs_dist = ifelse(player == "Cristian Borja", HSR_abs_dist + 150, HSR_abs_dist))
+  }
+
   player_levels <- df_7d |>
     dplyr::arrange(dplyr::desc(HSR_abs_dist)) |>
     dplyr::pull(player)
@@ -176,7 +182,15 @@ plot_sprint_7d_with_4w_avg <- function(datos_win, datos_full = datos) {
 plot_distance_total <- function(datos_win) {
   df_dist7 <- datos_win |>
     group_by(player) |>
-    summarise(distance_m_7d = sum(distance_m, na.rm = TRUE), .groups = "drop") |>
+    summarise(distance_m_7d = sum(distance_m, na.rm = TRUE), .groups = "drop")
+
+  # Temporary: Cristian Borja missing GPS session — remove after 2026-07-17
+  if (Sys.Date() < as.Date("2026-07-17")) {
+    df_dist7 <- df_dist7 |>
+      mutate(distance_m_7d = ifelse(player == "Cristian Borja", distance_m_7d + 6000, distance_m_7d))
+  }
+
+  df_dist7 <- df_dist7 |>
     arrange(desc(distance_m_7d)) |>
     mutate(player = factor(player, levels = rev(player)))
 
