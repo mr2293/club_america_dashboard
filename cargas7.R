@@ -32,6 +32,8 @@ datos <-  datos |>
     player == "Guillermo Cortes" ~ "Guillermo Cortés",
     player == "Adrian Fernandez" ~ "Adrián Fernández",
     player == "Diego Arriaga" ~ "Diego Arriaga",
+    player == "Oscar Perea" ~ "Óscar Perea",
+    player == "Edwin Cerrillo" ~ "Edwin Cerrillo",
     TRUE ~ player
   ),
   date = as.Date(date))
@@ -65,7 +67,9 @@ vel_max_lookup <- tibble::tribble(
   "Ricardo González",          33.00,
   "Guillermo Cortés",          33.00,
   "Adrián Fernández",          33.00,
-  "Diego Arriaga",             33.00
+  "Diego Arriaga",             33.00,
+  "Óscar Perea",               33.00,
+  "Edwin Cerrillo",            33.00
 )
 
 selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez", "Brian Rodríguez",           
