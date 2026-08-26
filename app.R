@@ -1415,6 +1415,63 @@ md_date_choices <- setNames(
 # UI
 # ----------------------------
 ui <- fluidPage(
+  tags$head(
+    tags$style(HTML("
+      .comp-toggle-label {
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #6b7280;
+      }
+      .comp-toggle .shiny-options-group {
+        display: inline-flex;
+        gap: 2px;
+        background: #eef0f4;
+        border-radius: 999px;
+        padding: 3px;
+        margin: 0;
+      }
+      .comp-toggle .radio {
+        margin: 0;
+      }
+      .comp-toggle .radio label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 56px;
+        margin: 0;
+        padding: 6px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 14px;
+        color: #6b7280;
+        transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+      }
+      .comp-toggle .radio input[type='radio'] {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .comp-toggle .radio label:hover {
+        color: #0B1B4A;
+      }
+      .comp-toggle .radio:nth-of-type(1) label:has(input:checked) {
+        background: #0B1B4A;
+        color: #fff;
+        box-shadow: 0 1px 4px rgba(11, 27, 74, .35);
+      }
+      .comp-toggle .radio:nth-of-type(2) label:has(input:checked) {
+        background: #C1121F;
+        color: #fff;
+        box-shadow: 0 1px 4px rgba(193, 18, 31, .35);
+      }
+    "))
+  ),
+
   titlePanel("M\u00e9tricas de Carga F\u00edsica - Club Am\u00e9rica"),
 
   tags$div(
@@ -1439,6 +1496,18 @@ ui <- fluidPage(
         format   = "dd/mm/yyyy",
         language = "es",
         separator = " \u2013 "
+      )
+    ),
+    column(3,
+      tags$div(class = "comp-toggle-label", "Incluir Compensatorio"),
+      tags$div(class = "comp-toggle",
+        radioButtons(
+          inputId  = "incluir_compensatorio",
+          label    = NULL,
+          choices  = c("S\u00ed" = "si", "No" = "no"),
+          selected = "si",
+          inline   = TRUE
+        )
       )
     )
   ),
@@ -1586,13 +1655,22 @@ ui <- fluidPage(
 # ----------------------------
 server <- function(input, output, session) {
 
+  # Base dataset — applies the Compensatorio include/exclude toggle to every graph/table
+  datos_base <- reactive({
+    if (identical(input$incluir_compensatorio, "no")) {
+      datos |> dplyr::filter(!grepl("compensatorio", session_name, ignore.case = TRUE))
+    } else {
+      datos
+    }
+  })
+
   # Reactive filtered dataset — drives all team-level plots
   datos_win <- reactive({
     req(input$date_range)
     start <- as.Date(input$date_range[1])
     end   <- as.Date(input$date_range[2])
     validate(need(start <= end, "La fecha de inicio debe ser anterior a la fecha final."))
-    datos |> dplyr::filter(date >= start, date <= end)
+    datos_base() |> dplyr::filter(date >= start, date <= end)
   })
 
   output$ultima_sesion <- renderText({
@@ -1603,12 +1681,12 @@ server <- function(input, output, session) {
 
   output$plot_hsr <- renderPlot({
     req(datos_win())
-    plot_hsr_7d_with_4w_avg(datos_win(), datos)
+    plot_hsr_7d_with_4w_avg(datos_win(), datos_base())
   })
 
   output$plot_sprint <- renderPlot({
     req(datos_win())
-    plot_sprint_7d_with_4w_avg(datos_win(), datos)
+    plot_sprint_7d_with_4w_avg(datos_win(), datos_base())
   })
 
   output$plot_distance <- renderPlot({
@@ -1633,12 +1711,12 @@ server <- function(input, output, session) {
 
   output$plot_sprints_abs <- renderPlot({
     req(datos_win())
-    plot_sprint_count_95pct(datos_win(), datos)
+    plot_sprint_count_95pct(datos_win(), datos_base())
   })
 
   output$plot_sprints_rel <- renderPlot({
     req(datos_win())
-    plot_sprint_count_85pct(datos_win(), datos)
+    plot_sprint_count_85pct(datos_win(), datos_base())
   })
 
   output$tabla_resumen <- gt::render_gt({
@@ -1648,7 +1726,7 @@ server <- function(input, output, session) {
 
   output$tabla_md <- gt::render_gt({
     req(input$md_date)
-    build_md_table(datos, input$md_date)
+    build_md_table(datos_base(), input$md_date)
   })
 
   output$tabla_perfil <- gt::render_gt({
@@ -1658,20 +1736,20 @@ server <- function(input, output, session) {
 
   # ACWR — always anchored to the most recent date in datos
   output$tabla_acwr <- gt::render_gt({
-    build_acwr_table(datos)
+    build_acwr_table(datos_base())
   })
 
   # MD-relative profile — reacts to metric selector
   output$plot_md_relative <- renderPlot({
     req(input$md_rel_metric)
-    build_md_relative_plot(datos, input$md_rel_metric)
+    build_md_relative_plot(datos_base(), input$md_rel_metric)
   })
 
   # IA — narrative (button-triggered, blocking with progress indicator)
   narrative_val <- reactiveVal("")
   observeEvent(input$btn_narrative, {
     withProgress(message = "Consultando IA\u2026", value = 0.6, {
-      prompt <- build_narrative_prompt(datos)
+      prompt <- build_narrative_prompt(datos_base())
       result <- call_claude_api(prompt, max_tokens = 450)
       narrative_val(result)
     })
@@ -1683,7 +1761,7 @@ server <- function(input, output, session) {
   observeEvent(input$btn_query, {
     req(nchar(trimws(input$nl_query)) > 0)
     withProgress(message = "Consultando IA\u2026", value = 0.6, {
-      prompt <- build_nl_prompt(datos, input$nl_query)
+      prompt <- build_nl_prompt(datos_base(), input$nl_query)
       result <- call_claude_api(prompt, max_tokens = 700)
       nl_answer_val(result)
     })
