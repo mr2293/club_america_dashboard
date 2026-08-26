@@ -77,7 +77,7 @@ selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez
                    "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez", "Patricio Salas", 
                    "Ramón Juárez","Sebastián Cáceres", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa",
                    "Franco Rossano", "Emilio Lara", "Dago Espinoza", "Ricardo González", "Adrián Fernández",
-                   "Guillermo Cortés", "Diego Arriaga")
+                   "Guillermo Cortés", "Diego Arriaga", "Óscar Perea", "Edwin Cerrillo")
 
 datos <- datos |>
   left_join(vel_max_lookup, by = "player") |>
