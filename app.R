@@ -46,8 +46,12 @@ addResourcePath("session_calculator_www", file.path("apps", "session_calculator"
 # shared font stack + softer page background across all three tabs for a
 # more cohesive look, without touching any tab's own internal CSS/layout.
 app_shell_css <- "
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-  .container-fluid { background: #F7F8FA; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F7F8FA; }
+  /* Scoped to body's own direct-child wrapper only -- Bootstrap's navbar
+     markup also uses an inner .container-fluid to wrap its own content,
+     and an unscoped rule here paints over the navbar gradient since that
+     inner one exactly fills the navbar's box. */
+  body > .container-fluid { background: #F7F8FA; }
 
   .navbar-default {
     background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%) !important;
