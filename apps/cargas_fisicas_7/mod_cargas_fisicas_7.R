@@ -97,7 +97,7 @@ mod_cargas_fisicas_7_ui <- function(id) {
 
     tags$div(
       style = "margin-top:-10px; margin-bottom:10px; color:#4b5563; font-size:18px; font-weight:600;",
-      "Acumulado por Período Seleccionado"
+      "Acumulado por Periodo Seleccionado"
     ),
 
     tags$div(
