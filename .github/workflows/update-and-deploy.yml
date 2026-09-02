@@ -1,0 +1,140 @@
+name: Update Data & Deploy Combined Dashboard
+
+# Combines apps/dashboard_cargas's two daily Google Sheet pulls (Bienestar +
+# RPE) with a single build-and-deploy of the root app.R (all three tabs).
+#
+# NOTE ON CARGAS_FISICAS_7's CATAPULT DATA: unlike the wellness/RPE
+# Excels below, the CATAPULT data updates that used to land as daily
+# commits in the standalone cargas_fisicas_7 repo (e.g. "chore: update
+# CATAPULT data 2026-08-21") were NOT produced by a GitHub Actions
+# workflow in that repo -- apps/cargas_fisicas_7/.github/workflows/ does
+# not exist. Whatever process generated those commits ran outside GitHub
+# Actions (a local script, a scheduled task on someone's machine, etc.).
+# This workflow does not attempt to replicate that step since its actual
+# source wasn't found -- apps/cargas_fisicas_7/data will only get fresh
+# CATAPULT data here if that external process (whatever it is) is pointed
+# at this repo instead, or a real Actions step is added once the source
+# script is located.
+
+on:
+  schedule:
+    # GitHub Actions uses UTC.
+    # Cuestionario Bienestar: 09:10 America/Mexico_City (~UTC-6) ≈ 15:10 UTC
+    - cron: '10 15 * * *'
+    # RPE: 20:00 America/Mexico_City ≈ 02:00 UTC next day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------
+      # 1) Checkout repository (full history)
+      # ---------------------------
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # ---------------------------
+      # 1.5) Start from a clean origin/main (avoid local-change pull conflicts)
+      # ---------------------------
+      - name: Sync to origin/main
+        run: |
+          set -e
+          git fetch origin main
+          git checkout -B main origin/main
+          git reset --hard origin/main
+
+      # ---------------------------
+      # 2) Set up Python for Google Sheet download
+      # ---------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # ---------------------------
+      # 3) Ensure data folder exists
+      # ---------------------------
+      - name: Ensure data folder exists
+        run: mkdir -p apps/dashboard_cargas/data
+
+      # ---------------------------
+      # 4) Download Cuestionario Bienestar Google Sheet as XLSX
+      #    (download_gsheet.py writes a relative "data/..." path, so it
+      #    needs to run with apps/dashboard_cargas as its working dir)
+      # ---------------------------
+      - name: Download Google Sheet
+        working-directory: apps/dashboard_cargas
+        env:
+          SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python download_gsheet.py
+
+      # ---------------------------
+      # 4.5) Download RPE Google Sheet as XLSX
+      # ---------------------------
+      - name: Download RPE Google Sheet
+        working-directory: apps/dashboard_cargas
+        env:
+          RPE_SHEET_ID: ${{ secrets.RPE_SHEET_ID }}
+        run: python download_rpe.py
+
+      # ---------------------------
+      # 5) Commit & push Excels if changed
+      #    (force-add in case .gitignore ignores *.xlsx)
+      # ---------------------------
+      - name: Commit and push updated sheets (if changed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage the Excels (force-add in case they're ignored)
+          git add -f \
+            apps/dashboard_cargas/data/bienestar_jugador_primer_equipo_respuestas.xlsx \
+            apps/dashboard_cargas/data/rpe_primera.xlsx
+
+          # Commit only if staged changes exist
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update wellness & RPE Excels [skip ci]"
+            git push origin main
+          fi
+
+      # ---------------------------
+      # 6) Build Docker container
+      # ---------------------------
+      - name: Build Docker image
+        run: docker build --pull -t club_america_dashboard .
+
+      # ---------------------------
+      # 7) Deploy Shiny app inside Docker
+      # ---------------------------
+      - name: Deploy to shinyapps.io
+        env:
+          SHINY_ACC_NAME:    ${{ secrets.SHINY_ACC_NAME }}
+          TOKEN:             ${{ secrets.TOKEN }}
+          SECRET:            ${{ secrets.SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          docker run --rm \
+            -e SHINY_ACC_NAME="${SHINY_ACC_NAME}" \
+            -e TOKEN="${TOKEN}" \
+            -e SECRET="${SECRET}" \
+            -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+            club_america_dashboard
