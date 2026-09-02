@@ -1,0 +1,35 @@
+# R/RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+
+# Packages/renv
+.Renv/
+renv/library/
+renv/staging/
+packrat/
+
+# OS/editor
+.DS_Store
+*.swp
+
+# Secrets
+secrets.R
+
+# Shiny/outputs
+*.html
+*.pdf
+*.png
+*.jpeg
+*.jpg
+*.rds
+*.qs
+
+# Allow player images
+!www/player_images/*.jpg
+!www/player_images/*.jpeg
+!www/player_images/*.png
+!www/player_images/*.avif
+

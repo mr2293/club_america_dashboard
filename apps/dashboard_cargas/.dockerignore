@@ -1,0 +1,21 @@
+# R temporary / project files
+.Rhistory
+.RData
+.Rproj.user
+
+# renv cache (we’ll restore packages inside Docker)
+renv/library
+renv/python
+
+# Python cache (if any)
+__pycache__
+
+# Log files
+*.log
+
+# macOS hidden files
+.DS_Store
+
+# Optional: avoid Docker caching large unnecessary files
+.Renviron
+.Renviron.site

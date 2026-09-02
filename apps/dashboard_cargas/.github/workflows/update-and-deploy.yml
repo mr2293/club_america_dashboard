@@ -1,0 +1,229 @@
+name: Update Google Sheet & Deploy Shiny App
+
+on:
+  schedule:
+    # GitHub Actions uses UTC.
+    # Cuestionario Bienestar: 09:10 America/Mexico_City (~UTC-6) ≈ 15:10 UTC
+    - cron: '10 15 * * *'
+    # RPE: 20:00 America/Mexico_City ≈ 02:00 UTC next day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------
+      # 1) Checkout repository (full history)
+      # ---------------------------
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # ---------------------------
+      # 1.5) Start from a clean origin/main (avoid local-change pull conflicts)
+      # ---------------------------
+      - name: Sync to origin/main
+        run: |
+          set -e
+          git fetch origin main
+          git checkout -B main origin/main
+          git reset --hard origin/main
+
+      # ---------------------------
+      # 2) Set up Python for Google Sheet download
+      # ---------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # ---------------------------
+      # 3) Ensure data folder exists
+      # ---------------------------
+      - name: Ensure data folder exists
+        run: mkdir -p data
+
+      # ---------------------------
+      # 4) Download Cuestionario Bienestar Google Sheet as XLSX
+      # ---------------------------
+      - name: Download Google Sheet
+        env:
+          SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python download_gsheet.py
+
+      # ---------------------------
+      # 4.5) Download RPE Google Sheet as XLSX
+      # ---------------------------
+      - name: Download RPE Google Sheet
+        env:
+          RPE_SHEET_ID: ${{ secrets.RPE_SHEET_ID }}
+        run: python download_rpe.py
+
+      # ---------------------------
+      # 5) Commit & push Excels if changed
+      #    (force-add in case .gitignore ignores *.xlsx)
+      # ---------------------------
+      - name: Commit and push updated sheets (if changed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage the Excels (force-add in case they're ignored)
+          git add -f \
+            data/bienestar_jugador_primer_equipo_respuestas.xlsx \
+            data/rpe_primera.xlsx
+
+          # Commit only if staged changes exist
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update wellness & RPE Excels [skip ci]"
+            git push origin main
+          fi
+
+      # ---------------------------
+      # 6) Build Docker container
+      # ---------------------------
+      - name: Build Docker image
+        run: docker build --pull -t dashboard_cargas .
+
+      # ---------------------------
+      # 7) Deploy Shiny app inside Docker
+      # ---------------------------
+      - name: Deploy to shinyapps.io
+        env:
+          SHINY_ACC_NAME:    ${{ secrets.SHINY_ACC_NAME }}
+          TOKEN:             ${{ secrets.TOKEN }}
+          SECRET:            ${{ secrets.SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          docker run --rm \
+            -e SHINY_ACC_NAME="${SHINY_ACC_NAME}" \
+            -e TOKEN="${TOKEN}" \
+            -e SECRET="${SECRET}" \
+            -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+            dashboard_cargas
+
+
+
+# name: Update Google Sheet & Deploy Shiny App
+# 
+# on:
+#   schedule:
+#     # GitHub Actions uses UTC. 09:45 America/Mexico_City (UTC-6) ≈ 15:45 UTC.
+#     - cron: '45 15 * * *'
+#   workflow_dispatch:
+# 
+# permissions:
+#   contents: write
+# 
+# jobs:
+#   update-and-deploy:
+#     runs-on: ubuntu-latest
+# 
+#     steps:
+#       # ---------------------------
+#       # 1) Checkout repository (full history)
+#       # ---------------------------
+#       - name: Checkout repo
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#           persist-credentials: true
+# 
+#       # ---------------------------
+#       # 1.5) Start from a clean origin/main (avoid local-change pull conflicts)
+#       # ---------------------------
+#       - name: Sync to origin/main
+#         run: |
+#           set -e
+#           git fetch origin main
+#           git checkout -B main origin/main
+#           git reset --hard origin/main
+# 
+#       # ---------------------------
+#       # 2) Set up Python for Google Sheet download
+#       # ---------------------------
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.x'
+# 
+#       - name: Install Python dependencies
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install requests
+# 
+#       # ---------------------------
+#       # 3) Ensure data folder exists
+#       # ---------------------------
+#       - name: Ensure data folder exists
+#         run: mkdir -p data
+# 
+#       # ---------------------------
+#       # 4) Download Cuestionario Bienestar Google Sheet as XLSX
+#       # ---------------------------
+#       - name: Download Google Sheet
+#         env:
+#           SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+#         run: python download_gsheet.py
+# 
+#       # ---------------------------
+#       # 5) Commit & push Excel if it changed
+#       #    (force-add in case .gitignore ignores *.xlsx)
+#       # ---------------------------
+#       - name: Commit and push updated sheet (if changed)
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#         run: |
+#           set -e
+#           git config user.name "github-actions[bot]"
+#           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+# 
+#           # Stage ONLY the Excel (force-add in case it's ignored)
+#           git add -f data/bienestar_jugador_primer_equipo_respuestas.xlsx
+# 
+#           # Commit only if staged changes exist
+#           if git diff --cached --quiet; then
+#             echo "No changes to commit."
+#           else
+#             git commit -m "chore: update wellness survey Excel [skip ci]"
+#             git push origin main
+#           fi
+# 
+#       # ---------------------------
+#       # 6) Build Docker container
+#       # ---------------------------
+#       - name: Build Docker image
+#         run: docker build --pull -t dashboard_cargas .
+# 
+#       # ---------------------------
+#       # 7) Deploy Shiny app inside Docker
+#       # ---------------------------
+#       - name: Deploy to shinyapps.io
+#         env:
+#           SHINY_ACC_NAME: ${{ secrets.SHINY_ACC_NAME }}
+#           TOKEN: ${{ secrets.TOKEN }}
+#           SECRET: ${{ secrets.SECRET }}
+#         run: |
+#           docker run --rm \
+#             -e SHINY_ACC_NAME="${SHINY_ACC_NAME}" \
+#             -e TOKEN="${TOKEN}" \
+#             -e SECRET="${SECRET}" \
+#             dashboard_cargas
+
