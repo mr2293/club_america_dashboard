@@ -42,6 +42,12 @@ addResourcePath("session_calculator_www", file.path("apps", "session_calculator"
 ui <- navbarPage(
   title = "Club América — Cargas Físicas",
   theme = shinytheme("cerulean"),
+  header = tagList(
+    tags$style(HTML(
+      ".club-logo-corner { position: fixed; top: 8px; right: 16px; width: 40px; height: 40px; z-index: 1100; }"
+    )),
+    tags$img(src = "session_calculator_www/escudo.png", class = "club-logo-corner", alt = "Club América")
+  ),
   tabPanel("Bienestar", mod_dashboard_cargas_ui("cargas")),
   tabPanel("Cargas Físicas", mod_cargas_fisicas_7_ui("cargas7")),
   tabPanel("Calculadora de Sesión", mod_session_calculator_ui("calc"))

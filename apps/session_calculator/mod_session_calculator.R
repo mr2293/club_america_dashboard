@@ -94,8 +94,6 @@ sc_app_css <- "
   .sc-root .total-ci { font-size: 9px; color: #9CA3AF; margin-top: 2px; }
   .sc-root .footer { font-size: 10px; color: #9CA3AF; text-align: center; line-height: 1.5; padding: 0 12px; }
   .sc-root .loading, .sc-root .error-box { text-align: center; padding: 40px; color: #6B7280; }
-
-  .sc-root .club-logo { position: absolute; top: 12px; right: 16px; width: 56px; height: 56px; z-index: 100; }
 "
 
 mod_session_calculator_ui <- function(id) {
@@ -106,7 +104,6 @@ mod_session_calculator_ui <- function(id) {
     div(
       class = "sc-root",
       style = "position: relative;",
-      tags$img(src = "session_calculator_www/escudo.png", class = "club-logo", alt = "Club América"),
       div(
         class = "container-app",
         h1(class = "app-title", "Calculadora de Sesión"),
