@@ -1411,6 +1411,12 @@ md_date_choices <- setNames(
   format(md_dates_vec, "%d/%m/%Y")
 )
 
+# NOTE: club_america_dashboard/apps/cargas_fisicas_7/mod_cargas_fisicas_7.R
+# locates this exact "# UI" marker line to split this file's helper/data
+# code (reused as a Shiny module) from its ui/server code (not reused,
+# since the module defines its own namespaced ui/server). If you rename or
+# remove the "# UI" line below, update that marker search too, or the
+# combined club_america_dashboard app will fail to load this tab.
 # ----------------------------
 # UI
 # ----------------------------
