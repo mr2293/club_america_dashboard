@@ -39,10 +39,63 @@ source("apps/session_calculator/mod_session_calculator.R", encoding = "UTF-8")
 addResourcePath("dashboard_cargas_www", file.path("apps", "dashboard_cargas", "www"))
 addResourcePath("session_calculator_www", file.path("apps", "session_calculator", "www"))
 
+# Global chrome styling: the navbar's default shinytheme("cerulean") light
+# blue didn't match the app's actual accent color, used elsewhere (e.g. the
+# Bienestar tab's date/MD-phase bar) as a linear-gradient(135deg, #1a237e,
+# #1565c0). Restyled the navbar to the same gradient, and layered in a
+# shared font stack + softer page background across all three tabs for a
+# more cohesive look, without touching any tab's own internal CSS/layout.
+app_shell_css <- "
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  .container-fluid { background: #F7F8FA; }
+
+  .navbar-default {
+    background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%);
+    border: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .navbar-default .navbar-brand {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .navbar-default .navbar-nav > li > a {
+    color: rgba(255,255,255,0.82);
+    font-weight: 500;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+  .navbar-default .navbar-nav > li > a:hover,
+  .navbar-default .navbar-nav > li > a:focus {
+    color: #ffffff;
+    background-color: rgba(255,255,255,0.08);
+  }
+  .navbar-default .navbar-nav > .active > a,
+  .navbar-default .navbar-nav > .active > a:hover,
+  .navbar-default .navbar-nav > .active > a:focus {
+    color: #ffffff !important;
+    background-color: rgba(255,255,255,0.18) !important;
+    box-shadow: none;
+  }
+
+  .nav-tabs { border-bottom-color: #E2E5EA; }
+  .nav-tabs > li > a { color: #1565c0; }
+  .nav-tabs > li.active > a,
+  .nav-tabs > li.active > a:hover,
+  .nav-tabs > li.active > a:focus {
+    color: #1a237e;
+    font-weight: 700;
+    border-color: #E2E5EA #E2E5EA transparent;
+  }
+
+  .btn-default, .btn { border-radius: 6px; }
+  .form-control, .selectize-input { border-radius: 6px; }
+"
+
 ui <- navbarPage(
   title = "Club América — Cargas Físicas",
   theme = shinytheme("cerulean"),
   header = tagList(
+    tags$style(HTML(app_shell_css)),
     tags$style(HTML(
       ".club-logo-corner { position: fixed; top: 8px; right: 16px; width: 40px; height: 40px; z-index: 1100; }"
     )),
