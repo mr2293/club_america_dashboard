@@ -287,7 +287,13 @@ mod_cargas_fisicas_7_server <- function(id) {
       req(input$date_range)
       start <- as.Date(input$date_range[1])
       end   <- as.Date(input$date_range[2])
-      validate(need(start <= end, "La fecha de inicio debe ser anterior a la fecha final."))
+      # Explicit shiny:: prefix -- dashboard_cargas's dashboard.R loads
+      # jsonlite, which masks shiny::validate()/need() with its own
+      # unrelated JSON-validation functions once both apps share this
+      # process (jsonlite::validate() expects a JSON string and fails
+      # with "is.character(txt) is not TRUE" on shiny::need()'s NULL
+      # "no error" return).
+      shiny::validate(shiny::need(start <= end, "La fecha de inicio debe ser anterior a la fecha final."))
       datos_base() |> dplyr::filter(date >= start, date <= end)
     })
 
