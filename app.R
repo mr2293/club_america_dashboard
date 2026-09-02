@@ -50,8 +50,8 @@ app_shell_css <- "
   .container-fluid { background: #F7F8FA; }
 
   .navbar-default {
-    background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%);
-    border: none;
+    background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%) !important;
+    border: none !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.15);
   }
   .navbar-default .navbar-brand {
