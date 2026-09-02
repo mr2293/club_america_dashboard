@@ -3,6 +3,14 @@ library(tidyverse)
 library(readxl)
 library(gt)
 
+# Do NOT add setwd() here -- this file's relative paths ("data/...") assume
+# the working directory is already this app's own folder. The combined
+# club_america_dashboard app's module wrapper (mod_cargas_fisicas_7.R)
+# already setwd()s here before sourcing this file (via app.R); a second
+# setwd() inside this script breaks that. To test this file standalone,
+# open cargas_fisicas_7.Rproj in RStudio instead (it sets the working
+# directory for you), or `cd` here from your shell before running Rscript.
+
 # Leer datos ----
 
 # datos <- read_xlsx("data/Sessions_micro01.xlsx")

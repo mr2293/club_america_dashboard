@@ -9,6 +9,14 @@ library(dplyr)
 library(httr)
 library(jsonlite)
 
+# Do NOT add setwd() here -- this file's relative paths ("data/...") assume
+# the working directory is already this app's own folder. The combined
+# club_america_dashboard app's module wrapper (mod_dashboard_cargas.R)
+# already setwd()s here before sourcing this file; a second setwd() inside
+# this script breaks that. To test this file standalone, open
+# dashboard_cargas.Rproj in RStudio instead (it sets the working directory
+# for you), or `cd` here from your shell before running Rscript.
+
 # Leer Cuestionario de Bienestar de Jugadores ---------
 survey_path <- "data/bienestar_jugador_primer_equipo_respuestas.xlsx"
 

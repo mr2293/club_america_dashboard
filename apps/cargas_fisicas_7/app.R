@@ -508,7 +508,7 @@ build_resumen_table <- function(datos_win) {
     ) |>
     gt::cols_label(.list = day_col_labels) |>
     gt::tab_spanner(label = "\u00dalt. 7 D\u00edas", columns = c(tot_hsr, tot_sprint, tot_sabs)) |>
-    gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
+    gt::sub_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
     gt::tab_style(
       style     = gt::cell_text(color = "#C1121F", weight = "bold"),
       locations = gt::cells_body(columns = c(tot_hsr, tot_sprint, tot_sabs))
@@ -902,7 +902,7 @@ build_md_table <- function(datos, selected_date = NULL) {
       columns  = dplyr::any_of(c("max_speed", "min")),
       decimals = 1, use_seps = FALSE
     ) |>
-    gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
+    gt::sub_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
     gt::tab_style(
       style     = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(columns = player)
@@ -1058,7 +1058,7 @@ build_acwr_table <- function(datos) {
     gt::tab_spanner(label = "HSR",          columns = c(acwr_hsr,  trend_hsr))  |>
     gt::tab_spanner(label = "Player Load",  columns = c(acwr_pl,   trend_pl))   |>
     gt::fmt_number(columns = c(acwr_dist, acwr_hsr, acwr_pl), decimals = 2) |>
-    gt::fmt_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
+    gt::sub_missing(columns = tidyselect::everything(), missing_text = "\u2014") |>
     gt::tab_style(
       style     = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(columns = player)
@@ -1494,7 +1494,7 @@ ui <- fluidPage(
     column(4,
       dateRangeInput(
         inputId  = "date_range",
-        label    = "Periodo:",
+        label    = "Período:",
         start    = max(datos$date, na.rm = TRUE) - days(6),
         end      = max(datos$date, na.rm = TRUE),
         min      = min(datos$date, na.rm = TRUE),

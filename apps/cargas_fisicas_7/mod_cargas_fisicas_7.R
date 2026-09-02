@@ -109,7 +109,7 @@ mod_cargas_fisicas_7_ui <- function(id) {
       column(4,
         dateRangeInput(
           inputId  = ns("date_range"),
-          label    = "Periodo:",
+          label    = "Período:",
           start    = max(datos$date, na.rm = TRUE) - days(6),
           end      = max(datos$date, na.rm = TRUE),
           min      = min(datos$date, na.rm = TRUE),

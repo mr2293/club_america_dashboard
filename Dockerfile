@@ -32,9 +32,12 @@ COPY apps/dashboard_cargas apps/dashboard_cargas
 COPY apps/cargas_fisicas_7 apps/cargas_fisicas_7
 COPY apps/session_calculator apps/session_calculator
 
-# Install renv and restore the merged lockfile
+# Install renv and restore the merged lockfile (renv.lock already tracks
+# rsconnect, so renv::restore() installs it -- do not additionally
+# install.packages("rsconnect") here, it overwrites the locked version with
+# latest-CRAN and makes rsconnect's own deploy-time dependency check fail
+# with "Library and lockfile are out of sync".
 RUN R -e "install.packages('renv', repos='https://cloud.r-project.org')" && \
-    R -e "renv::restore(prompt = FALSE)" && \
-    R -e "install.packages('rsconnect', repos='https://cloud.r-project.org')"
+    R -e "renv::restore(prompt = FALSE)"
 
 CMD ["Rscript", "deploy.R"]
