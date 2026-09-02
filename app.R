@@ -101,7 +101,7 @@ ui <- navbarPage(
   header = tagList(
     tags$style(HTML(app_shell_css)),
     tags$style(HTML(
-      ".club-logo-corner { position: fixed; top: 8px; right: 16px; width: 40px; height: 40px; z-index: 1100; }"
+      ".club-logo-corner { position: fixed; top: 4px; right: 8px; width: 40px; height: 40px; z-index: 1100; }"
     )),
     tags$img(src = "session_calculator_www/escudo.png", class = "club-logo-corner", alt = "Club América")
   ),
