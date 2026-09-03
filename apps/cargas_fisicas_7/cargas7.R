@@ -35,9 +35,10 @@ datos <-  datos |>
     player == "Patricio Salas" ~ "Patricio Salas",
     player == "Rodrigo Dourado" ~ "Rodrigo Dourado",
     player == "Thiago Espinosa" ~ "Thiago Espinosa",
-    player == "Dago Espinoza" ~ "Dago Espinoza",
+    player == "Dago Espinoza" ~ "Dagoberto Espinoza",
     player == "Ricardo Gonzalez" ~ "Ricardo González",
-    player == "Guillermo Cortes" ~ "Guillermo Cortés",
+    player == "Guillermo Cortes" ~ "Guillermo Cortéz",
+    player == "Guillermo Cortés" ~ "Guillermo Cortéz",
     player == "Adrian Fernandez" ~ "Adrián Fernández",
     player == "Diego Arriaga" ~ "Diego Arriaga",
     player == "Oscar Perea" ~ "Óscar Perea",
@@ -71,21 +72,33 @@ vel_max_lookup <- tibble::tribble(
   "Thiago Espinosa",           34.00,
   "Franco Rossano",            33.00,
   "Emilio Lara",               33.00,
-  "Dago Espinoza",             33.00,
   "Ricardo González",          33.00,
-  "Guillermo Cortés",          33.00,
+  "Guillermo Cortéz",          33.00,
   "Adrián Fernández",          33.00,
   "Diego Arriaga",             33.00,
   "Óscar Perea",               33.00,
-  "Edwin Cerrillo",            33.00
+  "Edwin Cerrillo",            33.00,
+  # Added to match the Bienestar roster -- vel_max_hist is NA until a real
+  # historical max-speed value is entered for each (placeholder 0 would
+  # misrepresent their data; NA renders as missing instead).
+  "Fernando Tapia",            NA_real_,
+  "Santiago Naveda",           NA_real_,
+  "Alejandro Cárdenas",        NA_real_,
+  "Ícaro da Conceicao",        NA_real_
 )
 
-selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez", "Brian Rodríguez",           
-                   "Cristian Borja", "Dagoberto Espinoza", "Erick Sánchez", "Henry Martín", "Isaías Violante",           
-                   "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez", "Patricio Salas", 
+# Kept in sync with the Bienestar dashboard's roster (dc_player_info in
+# apps/dashboard_cargas/mod_dashboard_cargas.R), minus goalkeepers -- this
+# app doesn't track goalkeeper running/sprint metrics (see the explicit
+# Luis Ángel Malagón exclusion below; Rodolfo Cota, the other GK, was never
+# added here for the same reason).
+selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez", "Brian Rodríguez",
+                   "Cristian Borja", "Dagoberto Espinoza", "Erick Sánchez", "Henry Martín", "Isaías Violante",
+                   "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez", "Patricio Salas",
                    "Ramón Juárez","Sebastián Cáceres", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa",
-                   "Franco Rossano", "Emilio Lara", "Dago Espinoza", "Ricardo González", "Adrián Fernández",
-                   "Guillermo Cortés", "Diego Arriaga", "Óscar Perea", "Edwin Cerrillo")
+                   "Franco Rossano", "Emilio Lara", "Ricardo González", "Adrián Fernández",
+                   "Guillermo Cortéz", "Diego Arriaga", "Óscar Perea", "Edwin Cerrillo",
+                   "Fernando Tapia", "Santiago Naveda", "Alejandro Cárdenas", "Ícaro da Conceicao")
 
 datos <- datos |>
   left_join(vel_max_lookup, by = "player") |>

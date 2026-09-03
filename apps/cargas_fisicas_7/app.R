@@ -407,7 +407,10 @@ build_resumen_table <- function(datos_win) {
   df_win <- datos_win |>
     dplyr::filter(date >= monday, date <= today)
 
-  all_players <- sort(unique(c(df_7d$player, df_win$player)))
+  # Full roster (selected_players), not just players with data this week --
+  # every roster player gets a row even with no sessions logged, matching
+  # this table's existing "—" missing-value design (see base_players below).
+  all_players <- sort(selected_players)
 
   totals <- df_7d |>
     dplyr::group_by(player) |>
