@@ -286,6 +286,8 @@ micros_shiny_comb <- read_csv("micros/micros_shiny_comb.csv") |>
     player == "Adrian Fernandez" ~ "Adrián Fernández",
     player == "Oscar Perea" ~ "Óscar Perea",
     player == "Edwin Cerrillo" ~ "Edwin Cerrillo",
+    player == "Miguel Borja" ~ "Miguel Borja",
+    player == "Carlos Alvarez" ~ "Carlos Álvarez",
     TRUE ~ player
   ),
   date = as.Date(date))
@@ -350,7 +352,7 @@ selected_players <- c(
   "Emilio Lara", "Franco Rossano", "Santiago Naveda", "Alejandro Cárdenas",
   "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
   "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
-  "Óscar Perea", "Edwin Cerrillo"
+  "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez"
 )
 
 # --- Build acute/chronic/ACWR and join MD info ---
@@ -661,7 +663,7 @@ jugs = c("Israel Reyes","Henry Martín","Alejandro Zendejas",
          "Emilio Lara", "Franco Rossano", "Santiago Naveda", "Alejandro Cárdenas",
          "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
          "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
-         "Óscar Perea", "Edwin Cerrillo")
+         "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez")
 
 ACWR_MISSING_Y <- 0.65
 
@@ -701,6 +703,8 @@ rpe_df <- rpe_raw |>
       player == "Erick Sanchez" ~ "Erick Sánchez",
       player == "Brian Rodriguez" ~ "Brian Rodríguez",
       player == "Victor Davila" ~ "Víctor Dávila",
+      player == "Miguel Borja" ~ "Miguel Borja",
+      player == "Carlos Alvarez" ~ "Carlos Álvarez",
       TRUE ~ player
     ),
     
