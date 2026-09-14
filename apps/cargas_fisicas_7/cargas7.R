@@ -29,10 +29,9 @@ datos <-  datos |>
     player == "Jona Dos Santos" ~ "Jonathan Dos Santos",
     player == "Luis Ángel Malagón Velázquez" ~ "Luis Ángel Malagón",
     player == "Alexis Gutierrez" ~ "Alexis Gutiérrez",
-    player == "Sebastian Cáceres" ~ "Sebastián Cáceres",
     player == "Isaias Violante" ~ "Isaías Violante",
     player == "Jose Zuniga" ~ "José Raúl Zúñiga",
-    player == "Patricio Salas" ~ "Patricio Salas",
+    # player == "Patricio Salas" ~ "Patricio Salas",  # on loan -- bring back once he returns
     player == "Rodrigo Dourado" ~ "Rodrigo Dourado",
     player == "Thiago Espinosa" ~ "Thiago Espinosa",
     player == "Dago Espinoza" ~ "Dagoberto Espinoza",
@@ -66,9 +65,8 @@ vel_max_lookup <- tibble::tribble(
   "José Raúl Zúñiga",          34.93,
   "Kevin Álvarez",             35.00,
   "Miguel Vázquez",            34.25,
-  "Patricio Salas",            35.00,
+  # "Patricio Salas",          35.00,  # on loan -- bring back once he returns
   "Ramón Juárez",              33.00,
-  "Sebastián Cáceres",         35.00,
   "Víctor Dávila",             34.00,
   "Raphael Veiga",             32.00,
   "Thiago Espinosa",           34.00,
@@ -84,7 +82,7 @@ vel_max_lookup <- tibble::tribble(
   # historical max-speed value is entered for each (placeholder 0 would
   # misrepresent their data; NA renders as missing instead).
   "Fernando Tapia",            NA_real_,
-  "Santiago Naveda",           NA_real_,
+  # "Santiago Naveda",         NA_real_,  # on loan -- bring back once he returns
   "Alejandro Cárdenas",        NA_real_,
   "Ícaro da Conceicao",        NA_real_,
   "Miguel Borja",              NA_real_,
@@ -98,11 +96,14 @@ vel_max_lookup <- tibble::tribble(
 # added here for the same reason).
 selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez", "Brian Rodríguez",
                    "Cristian Borja", "Dagoberto Espinoza", "Erick Sánchez", "Henry Martín", "Isaías Violante",
-                   "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez", "Patricio Salas",
-                   "Ramón Juárez","Sebastián Cáceres", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa",
+                   "Israel Reyes", "José Raúl Zúñiga", "Kevin Álvarez", "Miguel Vázquez",
+                   # "Patricio Salas",  # on loan -- bring back once he returns
+                   "Ramón Juárez", "Víctor Dávila", "Raphael Veiga", "Thiago Espinosa",
                    "Franco Rossano", "Emilio Lara", "Ricardo González", "Adrián Fernández",
                    "Guillermo Cortéz", "Diego Arriaga", "Óscar Perea", "Edwin Cerrillo",
-                   "Fernando Tapia", "Santiago Naveda", "Alejandro Cárdenas", "Ícaro da Conceicao",
+                   "Fernando Tapia",
+                   # "Santiago Naveda",  # on loan -- bring back once he returns
+                   "Alejandro Cárdenas", "Ícaro da Conceicao",
                    "Miguel Borja", "Carlos Álvarez")
 
 datos <- datos |>

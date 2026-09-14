@@ -269,14 +269,13 @@ micros_shiny_comb <- read_csv("micros/micros_shiny_comb.csv") |>
     player == "Miguel  Vazquez" ~ "Miguel Vázquez",
     player == "Luis Ángel Malagón Velázquez" ~ "Luis Ángel Malagón",
     player == "Alexis Gutierrez" ~ "Alexis Gutiérrez",
-    player == "Sebastian Cáceres" ~ "Sebastián Cáceres",
     player == "Isaias Violante" ~ "Isaías Violante",
     player == "Jose Zuniga" ~ "José Raúl Zúñiga",
     player == "kevin alvarez" ~ "Kevin Álvarez",
     player == "Erick Sanchez" ~ "Erick Sánchez",
     player == "Brian Rodriguez" ~ "Brian Rodríguez",
     player == "Alejandro Zendejas Saavedra" ~ "Alejandro Zendejas",
-    player == "Santiago Naveda Lara" ~ "Santiago Naveda",
+    # player == "Santiago Naveda Lara" ~ "Santiago Naveda",  # on loan -- bring back once he returns
     player == "Dago Espinoza" ~ "Dagoberto Espinoza",
     player == "Alejandro Cardenas" ~ "Alejandro Cárdenas",
     player == "Alejandro Fernandez" ~ "Adrián Fernández",
@@ -347,9 +346,13 @@ selected_players <- c(
   "Israel Reyes","Henry Martín","Alejandro Zendejas",
   "Isaías Violante","Alan Cervantes","Ramón Juárez","Erick Sánchez",
   "Brian Rodríguez","Kevin Álvarez","Dagoberto Espinoza","Víctor Dávila",
-  "Cristian Borja","Alexis Gutiérrez", "Sebastián Cáceres","Miguel Vázquez",
-  "José Raúl Zúñiga", "Pato Salas", "Raphael Veiga", "Thiago Espinosa", 
-  "Emilio Lara", "Franco Rossano", "Santiago Naveda", "Alejandro Cárdenas",
+  "Cristian Borja","Alexis Gutiérrez","Miguel Vázquez",
+  "José Raúl Zúñiga",
+  # "Pato Salas",  # on loan -- bring back once he returns
+  "Raphael Veiga", "Thiago Espinosa",
+  "Emilio Lara", "Franco Rossano",
+  # "Santiago Naveda",  # on loan -- bring back once he returns
+  "Alejandro Cárdenas",
   "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
   "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
   "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez"
@@ -658,9 +661,13 @@ plot_individual_hsr("Rodrigo Dourado")
 jugs = c("Israel Reyes","Henry Martín","Alejandro Zendejas",
          "Isaías Violante","Alan Cervantes","Ramón Juárez","Erick Sánchez",
          "Brian Rodríguez","Kevin Álvarez","Dagoberto Espinoza","Víctor Dávila",
-         "Cristian Borja","Alexis Gutiérrez", "Sebastián Cáceres","Miguel Vázquez",
-         "José Raúl Zúñiga", "Pato Salas", "Raphael Veiga", "Thiago Espinosa", 
-         "Emilio Lara", "Franco Rossano", "Santiago Naveda", "Alejandro Cárdenas",
+         "Cristian Borja","Alexis Gutiérrez","Miguel Vázquez",
+         "José Raúl Zúñiga",
+         # "Pato Salas",  # on loan -- bring back once he returns
+         "Raphael Veiga", "Thiago Espinosa",
+         "Emilio Lara", "Franco Rossano",
+         # "Santiago Naveda",  # on loan -- bring back once he returns
+         "Alejandro Cárdenas",
          "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
          "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
          "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez")
@@ -696,7 +703,6 @@ rpe_df <- rpe_raw |>
       player == "Miguel  Vazquez" ~ "Miguel Vázquez",
       player == "Luis Ángel Malagón Velázquez" ~ "Luis Ángel Malagón",
       player == "Alexis Gutierrez" ~ "Alexis Gutiérrez",
-      player == "Sebastian Cáceres" ~ "Sebastián Cáceres",
       player == "Isaias Violante" ~ "Isaías Violante",
       player == "Jose Zuniga" ~ "José Raúl Zúñiga",
       player == "kevin alvarez" ~ "Kevin Álvarez",
