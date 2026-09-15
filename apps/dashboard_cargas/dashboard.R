@@ -355,7 +355,8 @@ selected_players <- c(
   "Alejandro Cárdenas",
   "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
   "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
-  "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez"
+  "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez",
+  "Santiago Bueno"
 )
 
 # --- Build acute/chronic/ACWR and join MD info ---
@@ -670,7 +671,8 @@ jugs = c("Israel Reyes","Henry Martín","Alejandro Zendejas",
          "Alejandro Cárdenas",
          "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
          "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
-         "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez")
+         "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez",
+         "Santiago Bueno")
 
 ACWR_MISSING_Y <- 0.65
 
