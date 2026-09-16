@@ -82,7 +82,7 @@ dc_player_info <- tibble::tribble(
   "Miguel Borja",        "miguel_borja.jpg",     "26/01/1993",  "1.83m",
   "Carlos Álvarez",      "carlos_alvarez.jpg",   "06/08/2003",  "1.65m",
   "Santiago Bueno",      "bueno.jpg",            "09/11/1998",  "1.90m",
-  "Santiago Ramos",      "ramos_mingo.jpg",      "21/11/2001",  "1.86m"
+  "Santiago Ramos Mingo", "ramos_mingo.jpg",     "21/11/2001",  "1.86m"
 )
 
 .meses_es_dc <- c("enero","febrero","marzo","abril","mayo","junio",

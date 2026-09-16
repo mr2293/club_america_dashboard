@@ -20,7 +20,11 @@ library(jsonlite)
 # Leer Cuestionario de Bienestar de Jugadores ---------
 survey_path <- "data/bienestar_jugador_primer_equipo_respuestas.xlsx"
 
-recuperacion_df <- read_xlsx(survey_path)
+recuperacion_df <- read_xlsx(survey_path) |>
+  mutate(Nombre = case_when(
+    Nombre == "Santiago Ramos" ~ "Santiago Ramos Mingo",
+    TRUE ~ Nombre
+  ))
 
 # Darle Puntuación a Recuperación de Jugadores -------------
 
@@ -287,6 +291,7 @@ micros_shiny_comb <- read_csv("micros/micros_shiny_comb.csv") |>
     player == "Edwin Cerrillo" ~ "Edwin Cerrillo",
     player == "Miguel Borja" ~ "Miguel Borja",
     player == "Carlos Alvarez" ~ "Carlos Álvarez",
+    player == "Santiago Ramos" ~ "Santiago Ramos Mingo",
     TRUE ~ player
   ),
   date = as.Date(date))
@@ -356,7 +361,7 @@ selected_players <- c(
   "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
   "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
   "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez",
-  "Santiago Bueno", "Santiago Ramos"
+  "Santiago Bueno", "Santiago Ramos Mingo"
 )
 
 # --- Build acute/chronic/ACWR and join MD info ---
@@ -672,7 +677,7 @@ jugs = c("Israel Reyes","Henry Martín","Alejandro Zendejas",
          "Adrián Fernández", "Guillermo Cortéz", "Ícaro da Conceicao",
          "Ricardo González", "Rodolfo Cota", "Luis Ángel Malagón", "Diego Arriaga",
          "Óscar Perea", "Edwin Cerrillo", "Miguel Borja", "Carlos Álvarez",
-         "Santiago Bueno", "Santiago Ramos")
+         "Santiago Bueno", "Santiago Ramos Mingo")
 
 ACWR_MISSING_Y <- 0.65
 
@@ -713,6 +718,7 @@ rpe_df <- rpe_raw |>
       player == "Victor Davila" ~ "Víctor Dávila",
       player == "Miguel Borja" ~ "Miguel Borja",
       player == "Carlos Alvarez" ~ "Carlos Álvarez",
+      player == "Santiago Ramos" ~ "Santiago Ramos Mingo",
       TRUE ~ player
     ),
     

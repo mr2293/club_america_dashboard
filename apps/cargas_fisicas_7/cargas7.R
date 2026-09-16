@@ -44,6 +44,7 @@ datos <-  datos |>
     player == "Edwin Cerrillo" ~ "Edwin Cerrillo",
     player == "Miguel Borja" ~ "Miguel Borja",
     player == "Carlos Alvarez" ~ "Carlos Álvarez",
+    player == "Santiago Ramos" ~ "Santiago Ramos Mingo",
     TRUE ~ player
   ),
   date = as.Date(date))
@@ -88,7 +89,7 @@ vel_max_lookup <- tibble::tribble(
   "Miguel Borja",              NA_real_,
   "Carlos Álvarez",            NA_real_,
   "Santiago Bueno",            NA_real_,
-  "Santiago Ramos",            NA_real_
+  "Santiago Ramos Mingo",      NA_real_
 )
 
 # Kept in sync with the Bienestar dashboard's roster (dc_player_info in
@@ -106,7 +107,7 @@ selected_players <- c("Alan Cervantes", "Alejandro Zendejas", "Alexis Gutiérrez
                    "Fernando Tapia",
                    # "Santiago Naveda",  # on loan -- bring back once he returns
                    "Alejandro Cárdenas", "Ícaro da Conceicao",
-                   "Miguel Borja", "Carlos Álvarez", "Santiago Bueno", "Santiago Ramos")
+                   "Miguel Borja", "Carlos Álvarez", "Santiago Bueno", "Santiago Ramos Mingo")
 
 datos <- datos |>
   left_join(vel_max_lookup, by = "player") |>
