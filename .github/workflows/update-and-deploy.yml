@@ -3,18 +3,13 @@ name: Update Data & Deploy Combined Dashboard
 # Combines apps/dashboard_cargas's two daily Google Sheet pulls (Bienestar +
 # RPE) with a single build-and-deploy of the root app.R (all three tabs).
 #
-# NOTE ON CARGAS_FISICAS_7's CATAPULT DATA: unlike the wellness/RPE
-# Excels below, the CATAPULT data updates that used to land as daily
-# commits in the standalone cargas_fisicas_7 repo (e.g. "chore: update
-# CATAPULT data 2026-08-21") were NOT produced by a GitHub Actions
-# workflow in that repo -- apps/cargas_fisicas_7/.github/workflows/ does
-# not exist. Whatever process generated those commits ran outside GitHub
-# Actions (a local script, a scheduled task on someone's machine, etc.).
-# This workflow does not attempt to replicate that step since its actual
-# source wasn't found -- apps/cargas_fisicas_7/data will only get fresh
-# CATAPULT data here if that external process (whatever it is) is pointed
-# at this repo instead, or a real Actions step is added once the source
-# script is located.
+# NOTE ON CATAPULT DATA: the Catapult files (apps/cargas_fisicas_7/data,
+# apps/dashboard_cargas/micros/micros_shiny_comb.csv and
+# apps/session_calculator/data/stats_df.xlsx) are NOT refreshed by this
+# workflow. They are produced by the "Daily CATAPULT Fetch & Deploy"
+# workflow in the mr2293/process_catapult repo, which commits them here as
+# "chore: update CATAPULT data YYYY-MM-DD" and deploys right after. This
+# workflow only picks up whatever is on main.
 
 on:
   schedule:
