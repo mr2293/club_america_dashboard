@@ -275,7 +275,7 @@ server <- function(input, output, session) {
     if (is.null(model())) return(div(class = "loading", "Cargando modelo..."))
 
     tagList(
-      tags$label(class = "section-label", "Día de partido"),
+      tags$label(class = "section-label", "Día de microciclo"),
       uiOutput("md_buttons"),
       div(
         style = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px",
